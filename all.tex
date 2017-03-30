@@ -1,0 +1,1125 @@
+%!TEX root =  autocontgrlp.tex
+\begin{abstract}
+Approximate linear programming (ALP) and its variants have been widely applied to Markov Decision Processes (MDPs) with a large number of states. A serious limitation of ALP is that it has an intractable number of constraints, as a result of which constraint approximations are of interest. In this paper, we define a linearly relaxed approximation linear program (LRALP) that has a tractable number of constraints, obtained as positive linear combinations of the original constraints of the ALP. The main contribution is a novel performance bound for LRALP.
+%By providing a detailed error analysis for the GRLP, we justify usage of a linear architecture for approximating the dual variables. Unlike prior results on constraint sampling, our analysis is deterministic and is based on a novel contraction operator.
+\end{abstract}
+\begin{keywords}{
+%Approximate Dynamic Programming (ADP), 
+Markov Decision Processes (MDPs), Approximate Linear Programming (ALP), %Generalized Reduced Linear Program (GRLP), 
+%Constraint Sampling, Reinforcement Learning
+}
+\end{keywords}
+%!TEX root =  autocontgrlp.tex
+\section{Introduction}
+Markov decision processes (MDPs) have proved to be an indispensable model for sequential decision making under uncertainty with applications in networking, traffic control, robotics, operations research, business, finance, artificial intelligence, health-care and more (see, e.g., \cite{
+White93:Apps,
+rust96:book,
+FeiSh02:MDPHandbook,
+QiWu07,
+SiBu10:MDPinAI,
+BauRie:11,Puter,
+LeLiu12:RLBook,
+Abuetal15:MDPWireless,
+BouDi17:MDPPractice}).
+In this paper we adopt the framework of discrete-time, discounted MDPs when
+a controller steers the stochastically evolving state of a system while receiving 
+rewards that depends on the states visited and actions chosen. The goal is to choose the actions so as to maximize the \emph{return}, defined as the total discounted expected reward. A controller that uses past state information is called a \emph{policy}. An \emph{optimal policy} is one that maximizes the value no matter where the process is started from \cite{Puter}.
+In this paper we consider planning problems where the goal is to calculate actions of policies that give rise to high values
+ and give new error bounds on the quality of solutions obtained by solving linear programs of tractable size. 
+To explain the contributions in more details, we start by describing the computational challenges involved in planning.
+
+The main objective of \emph{planning} is to compute actions of an optimal policy while interacting with an MDP model. 
+In finite state-action MDPs,
+assuming access to individual transition probabilities and rewards along transitions, 
+various algorithms are available to perform this computation in time and space that scales polynomially with the number of states and actions.
+However, in most practical applications, the MDP is compactly represented
+and if it is not infinite, the number of states scale \emph{exponentially} with the \emph{size of the representation} of the MDP.
+%an effect that is known as \emph{Bellman's curse of dimensionality}.
+If planners are allowed to perform some fixed amount of calculations for each state encountered,
+it is possible to use sampling to make the per-state calculation-cost 
+independent of the size of the state space \cite{rust96:randomization,szepesvari2001,kearns2002sparse}.
+\todoc{Maybe we can cite Mausam's book here as discussing a whole range of methods originating from AI
+that target this problem, although without theoretical guarantees.}
+Nevertheless, the resulting methods are still quite limited. 
+In fact, various hardness results show that computing actions of (near-) optimal policies is intractable in various senses
+and in various compactly represented MDPs \cite{BlonTsi:00Complexity}.
+Given these negative results, 
+it is customary to adopt the \emph{modest goal of efficiently computing actions of a policy that 
+is nearly as good as a policy chosen by a suitable (computationally unbounded, and well-informed) oracle
+from a given restricted policy class}. \todoc{We should probably elaborate on the oracle idea space permitting.
+Or in the future. Btw, the situation is similar to statistical learning theory: There competing with the best choice 
+is only information theoretically possible. And competing with best choice
+in hindsight is often computationally intractable. Maybe cite information theory result for competing with the best policy in a class?}
+Here, within some restrictions (see below), the policy class can be chosen by the user.
+The more flexibility the user is given in this choice, the stronger a planning method is. \todoc{Add reference to the intro to Mausam's book. But where and what can be said?}
+
+A popular approach along these lines, which goes back to \citet{SchSei85}, 
+relies on considering linear approximations to the \emph{optimal value function}:
+The idea is that, similarly to linear regression, a fixed sequence of basis functions are combined
+linearly. The user's task is to use a priori knowledge of the MDP 
+to choose the basis functions so that 
+a good approximation to the optimal value function will exist in the linear space spanned by the basis functions.
+The idea then is to design some algorithm to find the coefficients of the basis functions that gives a good approximation,
+while keeping computation cost in check.
+Finding a good approximation is sufficient, since at the expense of an extra $O(1/\epsilon^2)$ randomized computation, 
+a uniform $O(\epsilon)$-approximation 
+to the optimal value function can be used to calculate an action of an $O(\epsilon)$-optimal policy at any given state
+(e.g., follow the ideas in \cite{szepesvari2001,kearns2002sparse}; see also Theorem 3.7 of \citet{Kall17}).
+Since the number of coefficients can be much smaller than the number of states, the algorithms that search
+for the coefficients have the potential to run efficiently regardless of the number of states.
+
+
+Following \citet{SchSei85}, most of the literature considers
+algorithms that are obtained from restricting exact planning methods to search 
+in the span of the fixed basis functions when performing computations.
+In this paper we consider the so-called \emph{approximate linear programming} (ALP) approach, which
+was heavily studied during the last two decades, e.g.,
+\cite{
+schuurmans,
+gkp,
+ALP,
+CS,
+kveton2004heuristic,
+petrik,
+SALP,
+fs,
+npalp,
+BhatFaMo12:SALPNP,
+abbasi}.
+The basic idea here is to combine a linear program whose solution is the optimal value function (and thus the number of optimization variables in it scales with the number of states) with a linear constraint that restricts the optimization variables to lie in the subspace spanned by the basis functions. As already noted by \citet{SchSei85}, the new LP can still be kept feasible by just adding one special basis function, while by substituting the ``value function candidates'' with their linear expansions, the number of optimization variables becomes the number of basis functions. 
+As shown by \citet{ALP}, the solution to the resulting LP is within a constant factor of the best approximation to the optimal value function within the span of the chosen bases. However, since the number of constraints in the LP is still proportional to the number of states, it is not obvious whether a solution to the resulting LP can be found in time independent of the number of states (other computations can be done in time independent of the number of states, e.g., using sampling, at the price of a controlled increase of the error, e.g., Theorem 6 of \citep{petrik}).
+
+Most of the literature is thus devoted to designing methods to select a tractable subset of the constraints while keeping the approximation guarantees, as well as keeping computations tractable. 
+Since a linear objective is optimized by a point on the boundary of the feasible region, 
+knowing the optimizer would be sufficient to eliminate all but 
+as many constraints as the number of optimization variables.
+The question is how to find a superset of these, or an approximating set, without incurring much computational overhead.
+\citet{schuurmans} and \citet{gkp} propose constraint generation in a setting 
+where the MDP has additional structure (i.e., factorized transition structure).
+This additional structure is then exploited in designing constraint generation methods which are able to efficiently generate
+violated constraints. A more general approach due to \citet{CS} 
+is to choose a random subset of the constraints 
+by choosing states to be included at random from a distribution that reflects the ``importance'' of states.
+While constraint generation can be powerful,
+it is not known how solution quality degrades with the budget on the constraints generated
+(\citeauthor{gkp} note that the number of constraints generated can be at most exponential in a fundamental quantity,
+the induced width of a so-called cost-network, which may be large and is in general hard to control).
+For constraint sampling,  \citet{CS} prove a bound on the suboptimality, but this bound applies only 
+in the unrealistic scenario when the constraints are sampled from an \emph{idealized} distribution,
+which is related to the stationary distribution of an optimal policy. 
+While it is possible to extend this result
+to any sampling distribution, the bound then scales with the mismatch between the sampling and the idealized
+distributions, which, in general, will be uncontrolled. 
+Another weakness of the bound is related to that when constraints are dropped, the linear program may become
+unbounded. To prevent this, \citet{CS}  propose imposing an extra constraint on the optimization variables.
+The bound they obtain, however, scales with the \emph{worst approximation error} over this constraint set.
+While in a specific example it is shown that this error can be controlled, no general results are derived in this direction.
+Later works, such as that of
+\citet{SALP,BhatFaMo12:SALPNP},  repeat the analysis of \citet{CS}
+in combinations with other ideas. However, no existing work that we know of addresses the above weaknesses of the result of \citet{CS}. \todoc{Yasin's paper should be cited here as an interesting alternative approach. My notes about his paper:
+Approximation in the dual. No control for infeasibility of resulting ALP. 
+Algorithm: Stochastic gradient descent for computing near-optimal solution on Langrangian with large Langrangian coefficients.
+Directly bounding loss of policy return as compared to best policy amongst those feasible. 
+For infeasible LP, result is vacuous (the error blows up when demanding a better solution).
+No bound on best feasible policy's return.
+Strong requirements: Result depends on ability to choose a sampling distributions to control a variance term. 
+"Few predecessor state-action pairs, which can be accessed, or sparse features", mixing. 
+}
+
+Our main contribution is a new suboptimality bound for the case when the constraint system is replaced with a smaller, 
+linearly projected constraint system. We also propose a specific way of adding the extra constraint to keep the resulting LP bounded.
+Rather than relying on combinatorial arguments (such as those at the heart of \citet{CS}), our argument uses previously unexploited geometric structure of the linear programs underlying MDPs.
+As a result our bound avoids distribution-mismatch terms and we also remove the scaling with worst approximation error.
+A specific outcome of our general result is the realization that it is beneficial to select states so that the ``feature vectors'' of all states when scaled with a fixed constant factor are included in the conic hull of the ``feature vectors'' underlying the selected states. This suggests to choose the basis functions so that this property can be satisfied by selecting only a few states. As we will argue, this property holds for several popular choices of basis functions.
+A preliminary version of this paper without the theoretical analysis and without the geometric arguments was published in a short conference communication \cite{aaaipaper}. \todoc{This could be a footnote on page 1 if space works out better that way.}
+
+\if0
+
+The  framework of Markov decision processes (MDPs) is useful to mathematically cast optimal sequential decision making problems arising in science and engineering. At any decision instance, an action is made which yields an immediate reward and the system moves to the next state in a stochastic manner such that the next state depends only on the current state and the action chosen. The set of all states, the state space, is denoted by $S$, and the set of all actions, the action space, is denoted by $A$. Formally, a decision rule is called a policy $u$, ($u\colon S\ra A$) and has an associated value function $J_u$\footnote{Without loss of generality value function $J_u$ can be thought of as a vector in $\Re^{|S|}$.}, ($J_u(s)\colon S\ra \Re$) which specifies the expected cumulative reward obtained by following the policy $u$ starting from each state.\par
+The so-called dynamic programming (DP) methods \cite{BertB} compute the optimal value function $J^*$ first and then obtain an optimal policy $u^*$ using $J^*$\footnote{Obtaining $u^*$ from $J^*$ is computationally cheap}. Conventional DP  techniques, such as value-, or policy-iteration, or linear programming (LP) \cite{BertB} can compute the exact value of $J^*$ (and $u^*$). However, a shortcoming of these conventional methods is that their computational overhead grows with the number of states, a practical hindrance when the MDP has a large number of states.\par
+This paper is related to LP based techniques for MDPs with large state spaces. One way to handle the large number of states is to restrict the value function to the sub-space spanned by the columns of an $n\times k$ feature matrix $\Phi$\footnote{This is known as linear function approximation (LFA) where in the value function is approximated by $\Phi \tr$, for some $\tr\in \Re^k$. The idea of LFA is not restricted to LP based approach and is also widely used in other approximate dynamic programming methods \cite{dpchapter}, which are not discussed in this paper.}. This sub-space restriction can be accommodated in the LP formulation and results in the approximate linear programming (ALP) formulation \cite{ALP,CS,SALP,ALP-Bor}. ALP computes an approximate value function $\tj=\Phi \tr$ and a sub-optimal policy $\tu$ can be obtained using $\tj$\footnote{It is computationally cheap to obtain such a $\tu$ from $\tj$ or $u^*$ from $J^*$}. The sub-optimal policy can then be used to make the decision and results in a cumulative return given by $J_{\tu}$. The performance of ALP was studied in \cite{ALP} in terms of the quantities $\norm{J^*-\tilde{J}}$ and $\norm{J^*-J_{\tu}}$ ($\norm{\cdot}$ is an appropriate norm) known as prediction error and the control error respectively. Here, prediction error is the error in the approximate value function $\tj$ and the control error is the loss in performance due to the sub-optimal policy $\tu$.\par
+%The \emph{approximate linear program} (ALP) \cite{ALP,CS,SALP,ALP-Bor} and its variants introduce linear function approximation in the linear programming formulation.
+A critical shortcoming of ALP is that the number of constraints are of the order of the size of the state space, making it intractable in MDPs with large number of states. A way out of this shortcoming is to choose a subset of constraints at random and drop the rest, thereby formulating a \emph{reduced linear program} (RLP). The performance analysis of RLP can be found in \cite{CS} and RLP has also been shown to perform well in experiments \cite{ALP,CS,CST}. An alternative approach to handle the issue of large number of constraints is to employ function approximation in the dual variables of ALP \cite{ALP-Bor,dolgov}, an approach that was also found useful in experiments. However, to this date, there exist no theoretical guarantees for this approach.\par
+In this paper, we generalize RLP to define a generalized reduced linear program (GRLP) which has a tractable number of constraints that are obtained as positive linear combinations of the original constraints.
+The salient aspects of our contribution are listed below:
+\begin{enumerate}
+\item We develop novel analytical machinery to relate $\hat{J}$, the solution to GRLP, and the optimal value function $J^*$ by bounding the prediction error $\norm{J^*-\hj}$ (\Cref{cmt2mn}).
+\item We also bound the performance loss due to using the policy $\hu$ that is obtained using $\hj$ (Theorem~\ref{polthe}).
+\item Our analysis is based on two novel $\max$-norm contraction operators and our results hold \emph{deterministically}, as opposed to the results on RLP \cite{SALP,CS}, where the guarantees have a probabilistic nature.
+\item Our analysis also makes use of arguments based on \emph{Lyapunov} function, an approach much similar to prior works in ALP literature \cite{ALP,SALP}.
+\item Our results on GRLP are the first to theoretically analyze the use of linear function approximation of Lagrangian (dual) variables underlying the constraints.
+\item A numerical example in controlled queues is provided to illustrate the theory.
+\end{enumerate}
+A short and preliminary version of this paper without the theoretical analysis can be found in \cite{aaaipaper}.
+\begin{comment}
+\section{Introduction}
+Markov decision processes (MDPs) are a powerful mathematical framework to study optimal sequential decision making problems  arising in science and engineering. In an MDP, the configuration of the system, the state, evolves in a stochastic manner in a way that the next state depends only on the last state and the action chosen. The set of all states, the state space, is denoted by $S$, and the set of all actions, the action space, is denoted by $A$.
+%An instance of an MDP is a controlled queue setting, where there is a cost associated with the number of customers in the queue, and the aim is to control the service level depending on the number of %customers so as to achieve a minimum cumulative cost. In more general terms, given any MDP,
+An optimal policy $u^*$ is a map from $S$ to $A$ that results in the best cumulative reward that can be obtained by starting from any state. The rewards for the various The so-called dynamic programming (DP) methods first compute what is known as the optimal \emph{value-function} ($J^*$), a vector whose dimension is the number of states, and use it to compute $u^*$. When the number of state is small conventional DP techniques, such as value-, or policy-iteration, or linear programming (LP) can be used to compute $J^*$ and $u^*$\cite{BertB}.\par
+Curse-of-dimensionality  refers to the fact that the number of states grows exponentially in the number of state variables. Many practical systems such as controlled queues, inventory control etc are
+afflicted by the curse, i.e., have large number of states. In such scenarios, it becomes increasingly difficult to compute the exact values of $J^*$ and $u^*$ because the DP methods are based on computations involving as many (or even more) number of variables as the number of states. A practical solution then is to compute an approximate value function $\tilde{J}$ instead of $J^*$. Approximate dynamic programming (ADP) methods combine an approximation architecture to represent $\tj$ and a conventional DP method to compute $\tj$. Eventually, ADP methods output a sub-optimal policy $\tu$ using the $\tj$ they compute. %Here, success depends on the quality of approximation, i.e., on the quantity $||J^*-\tilde{J}||$ for an appropriately chosen norm.\par
+Linear function approximation (LFA), i.e., letting $\tilde{J}=\Phi \tr$ where $\Phi \in \Re^{|S|\times k}$ is a so-called feature matrix and $\tr*\in \Re^k$ is a weight vector (to be computed), is the most widely used method of approximation. Here, dimensionality reduction is achieved by choosing $\Phi$ to have fewer columns in comparison to the number of states ($k<<|S|$), holding the promise of being able to work with MDPs regardless of the number of states.\par
+It is natural to expect that approximations lead to errors and it is important to quantify the errors. For a given ADP method, theoretical performance analysis analytically bounding the error terms $||J^*-\tilde{J}||$  and $\norm{J^*-J_{\tu}}$ which denote the error in approximating the value function, and performance loss due to following policy $\tu$ (here $J_{\tu}$ is the value of $\tu$) respectively. Further, in most cases the error terms reveal some structure that can offer insights and act as guide to the designer of the ADP method (for example the choice of $\Phi$). \par
+%While many ADP methods use LFA, not all of them are successful. For instance, ADP methods that use linear least squares projection are known to exhibit `policy oscillations' \cite{dpchapter}, i.e., %output a repeating sequence of bad sub-optimal policies.
+%Such an analysis is important to establish that the error is always bounded.
+%Further, in most cases the error terms reveal some structure that can offer insights and act as guide to the designer of the ADP method (for example the choice of $\Phi$). \par
+The \emph{approximate linear program} (ALP) \cite{ALP,CS,SALP,ALP-Bor} and its variants introduce LFA in the linear programming formulation to dynamic programming. Theoretical performance analysis of  ALP can be found in \cite{ALP}.
+%and a salient feature is that it does not suffer from issues such as `policy oscillations'\footnote{ADP methods that use linear least squares projection are known to exhibit `policy oscillations' %\cite{BertB}, i.e., output a repeating sequence of bad sub-optimal policies. Since our focus in this paper is ALP formulation, we refrain from a detailed presentation of the other methods.}
+The number of variables of ALP is only $k$, a critical shortcoming of ALP is that the number of constraints are of the order of the size of the state space, making it intractable.
+Two approaches have been found empirically successful \cite{CS,dolgov,ALP-Bor} in addressing the issue of large number of constraints in ALP. In the first approach \cite{CS}, a random subset of constraints is chosen (dropping the rest), thereby formulating a \emph{reduced linear programming} (RLP) problem. The performance analysis of RLP can be found in \cite{CS}, however, the bounds hold only in high probability under idealized assumptions. The second approach involves employing function approximation in the dual variables of ALP \cite{ALP-Bor,dolgov}. However, to this date, there exist no theoretical guarantees bounding the loss in performance due to this approach.\par
+Our motivation stems from the fact that ALP with tractable number of constraints will result in a full dimeniosnality free ADP method. However, constraint reduction in ALP is an extra source of error (in addition to the error due to LFA), which has not been theoretically well understood.  The focus of this paper is to fill this gap in theory by deriving performance bounds for constraint reduction in ALP formulation.
+The salient aspects of our contribution are listed below:
+\begin{enumerate}
+\item We define a generalized reduced linear programming (GRLP) which has a tractable number of constraints that are obtained as positive linear combinations of the original constraints. The GRLP amounts to linear function approximation of the dual variables, and RLP is a special case of GRLP.
+\item We develop a novel analytical machinery to bound the prediction error $\norm{J^*-\hj}$ where $hj$ is the solution to GRLP.
+		\item We also bound the performance loss due to using the policy $\hu$ that is one-step greedy with respect to $\hj$ (Theorem~\ref{polthe}).
+		\item Our analysis is based on two novel $\max$-norm contraction operators and our results hold \emph{deterministically}, as opposed to the results on RLP \cite{SALP,CS}, where the guarantees have a probabilistic nature.
+%Our analysis also makes use of arguments based on \emph{Lyapunov} functions, an approach much similar to prior works in ALP literature \cite{ALP,SALP}.
+\item Our results on GRLP are the first to theoretically analyze the use of linear function approximation of Lagrangian (dual) variables underlying the constraints.
+\item A numerical example in controlled queues is provided to illustrate the theory.
+\end{enumerate}
+%ALP with tractable number of constraints would result in  a full dimensionality free ADP method, without issues such as policy oscillations.
+A short and preliminary version of this paper without the theoretical analysis is available in \cite{aaaipaper}. The rest of the paper is organized as follows:
+\end{comment}
+\fi
+%!TEX root =  autocontgrlp.tex
+\section{Background} %: Markov Decision Processes (MDPs)}
+%The framework of Markov decision processes (MDPs) is useful to mathematically cast optimal sequential decision making problems in stochastic environments. In this section, we present a brief overview of the MDP framework, introducing the notions of policy, value function and optimality (please refer to \cite{BertB} for a detailed presentation on MDP).
+The purpose of this section is to introduce the necessary background before we can present the problem studied and the main results.
+
+We shall consider finite state-action space, discounted total expected reward MDPs.
+We note in passing that the assumption that number of states is finite is mainly made for convenience and at the expense of a more technical presentation could be lifted. We will comment later on the assumption concerning the number of actions.
+Let the set of states, or state space be $\S = \{1,2,\dots,S\}$ and let the set of actions be $\A = \{1,2,\dots,A\}$. 
+For simplicity, we assume that all actions are admissible in all states. 
+Given a choice of an action $a\in \A$ in a state $s\in \S$, the controller incurs a reward (or gain) of $g_a(s)\in [0,1]$ 
+and the state moves to a next state $s'\in \S$ with probability $p_{a}(s,s')$. 
+A \emph{policy} $u$ is a mapping from states to actions.\footnote{For the scope of this paper, it suffices to restrict our attention to such policies as opposed to considering history dependent policies. See Chapter 3, and specifically Corollary 3.3 of \cite{Kall17}.}
+When a policy is followed, the state sequence evolves as a Markov chain with transition probabilities given by $P_u$ matrix whose $(s,s')$th entry is $P_{u(s)}(s,s')$. Along the way the rewards generated from $g_u$ defined by $g_u(s) \defeq g_{u(s)}(s)$.
+The \emph{value} of following a policy from a starting state $s$ is denoted by $J_u(s)$ and is defined as 
+the expected total reward discounted reward. Thus,
+%The probability transition kernel $P$ collects the probabilities $p_a(s,s')$ of transitioning from state $s$ to state $s'$ under the action $a$ for all possible $s,s'\in S$ and $a\in A$. We denote the reward (or gain) obtained for performing action $a\in A$ in state $s\in S$ by $g_a(s)$.
+
+%\textbf{Policy:} A stationary deterministic policy(SDP), or simply a policy, is a map $u\colon S\ra A$ that specifies for each state what action to select in that state. Under an SDP, an MDP is a Markov chain whose probability transition matrix is denoted by $P_u$.
+
+%\textbf{Value Function:} Given an SDP $u$, the expected total discounted reward corresponding to starting at a state $s\in S$ at $t=0$, while choosing actions as dictated by $u$ for the states encountered in the future (i.e., $t>0$), is
+\begin{align}
+%J_u(s)\stackrel{\Delta}{=}\E[\sum_{t=0}^\infty \alpha^t g_{a_t}(s_t)|s_0=s,a_t=u(s_t)\mbox{ }\forall t\geq 0],\nn
+J_u(s)\defeq \sum_{t=0}^\infty \alpha^t (P_u^t g_u)(s)\,,\nn
+%\E[\sum_{t=0}^\infty \alpha^t g_{a_t}(s_t)|s_0=s,a_t=u(s_t)\mbox{ }\forall t\geq 0],\nn
+\end{align}
+where  $\alpha \in (0,1)$ is the so-called discount factor. % and $s_{t+1} \sim p_{a_t}(s_t,\cdot)$, $t\ge 0$.
+We call $J_u$ the \emph{value function} of policy $u$. The value function of a policy satisfies the fixed-point equation $J_u = T_u J_u$ where the affine-linear operator $T_u$ is defined by $T_u J = g_u + \alpha P_u J$.
+An \emph{optimal policy}, is one that maximizes the value simultaneously for all initial states.
+The \emph{optimal value function} $J^*$ is defined by $J^*(s) = \max_u J_u(s)$ and is known to be the solution of the fixed-point equation $J^* = T J^*$ where the operator $T$ is defined by $(TJ)(s) = \max_u (T_u J)(s)$, $s\in \S$, i.e., the maximization is component-wise. Optimal policies exist and in fact any policy $u$ such that the equation $T_u J^* = T J^*$ holds is optimal (e.g., Corollary 3.3 of \cite{Kall17}). A policy $u$ is said to be \emph{greedy} with respect to (w.r.t.) $J$ if $T_u J = T J^*$. Thus, any policy that is greedy w.r.t. $J^*$ is optimal. 
+
+\if0
+The value functions $J_u$ is an elements of $\R^S$. In what follows it will be useful for us to treat it as an $n$-dimensional vector, i.e., an element of $\R^n$, effectively identifying $\R^S$ with $\R^n$ in the natural way. Similarly we identify $\R^{nd}$ with $\R^{S\times A}$, where $d=|A|$.
+
+\textbf{Optimality and the Bellman Equation:} The \emph{optimal policy} $u^*$ is one that in each state $s\in S$ achieves the best possible total expected discounted reward from that state. That is, $J_{u^*}(s) = J^*(s) \eqdef \us{\max}{u\in U} J_u(s)$
+where $U$ is the set of all SDPs and $J^*$ is coined the \emph{optimal value function}.
+\footnote{In our case an optimal (SDP) $u^*$ exists and is well defined \cite{BertB}.}
+Any optimal policy $u^*$ and value function $J^*$ obey the Bellman equation (BE) which states that for all $ s \in S$,
+\begin{subequations}\label{bell}
+\begin{align}
+\label{bellval}J^*(s)&=\max_{ a\in A}\big(g_a(s)+\alpha \us{\sum}{s'\in S}p_a(s,s')J^*(s')\big),~\text{and}\\
+\label{bellpol}u^*(s)&\in \underset{a\in A}{\argmax}\big(g_a(s)+\alpha \us{\sum}{s'\in S}p_a(s,s')J^*(s')\big),\,.
+\end{align}
+\end{subequations}
+where ties in \eqref{bellpol} are resolved arbitrarily.
+For the subsequent sections, the following definitions will be useful later:
+\begin{definition}\label{notations}
+\begin{comment}
+Let $c,\rho,\chi:S \to \R_+$ be positive valued functions, where $\R_+$ denotes the set of strictly positive reals. Then for $J\in \R^n$, $a\in A$ and $s\in S$,
+define
+\end{comment}
+\begin{enumerate}[(i)]
+\item\label{bellopval} The Bellman operator $T\colon \R^n \ra \R^n$ is given by $(TJ)(s)=\max_{a \in A}\big(g_a(s)+\alpha \sum_{s'} p_a(s,s')J(s')\big).
+$
+\item \label{bellactval} The Bellman operator (of action values) $H: \R^n \to \R^{nd}$ for state-action values is given by $HJ=[ H_1 J,\cdots,H_d J]^\top\in \R^{nd},$ where $(H_a J)(s)= g_a(s)+\alpha \sum_{s'}p_a(s,s') J(s')$.
+\item\label{emat} The $nd\times n$ matrix $E$ is given by $E=[I,\ldots,I]^\top$, i.e., $E$ is obtained by stacking $d$ identical $n\times n$ identity matrices one over the other.
+\item\label{greedy} A policy $u_J$ is said to be greedy with respect to (w.r.t.) $J\in \R^n$ if for any $s\in S$,
+%some function $\tj:S \to \R$
+\begin{align*} u_J(s)\in\underset{a\in A}{\argmax}\big(g_a(s)+\alpha \us{\sum}{s'\in S} p_a(s,s')J(s')\big).\end{align*}
+\item\label{norms} The weighted $L_1$-norms $\norm{\cdot}_{1,c}$ with respect to a probability distribution $c$ is given by $
+\norm{J}_{1,c}=\sum_{s \in S} c(s)|J(s)|$.
+\item The (un)weighted $L_\infty$-norms $\norm{\cdot}_{1,\infty}$
+and $\norm{\cdot}_{\infty,\rho}$, $\norm{J}_{\infty}=\max_{s\in S}|J(s)|$ and $\norm{J}_{\infty,\rho}=\max_{s \in S} \frac{|J(s)|}{\rho(s)}$.
+\item For $J_1, J_2\in \R^n$ we write $J_1\leq J_2$ when $J_1(s)\leq J_2(s),~\forall s\in S$.
+\item We define $\one\in \R^n$ to be the vector whose coordinates are all equal to $1$.
+\end{enumerate}
+\end{definition}
+We would like to point out that from \Cref{notations}, it follows that for any $J\in \R^n$ the condition $J\geq TJ$ can be rephrased as $EJ\geq HJ$.
+\begin{comment}
+\subsection{Dynamic Programming: Objective and Methods}
+Once a given sequential decision making is cast in the MDP framework, it remains for us to still compute the optimal policy $u^*$. The idea behind Dynamic Programming (DP) methods is to use the BE \eqref{bellval} to first compute $J^*$, and then a near-optimal action $u^*$ can be obtained via \eqref{bellpol}
+for each state relatively cheaply even for large state-spaces (e.g., having the ability to sample from the next-state distribution at
+a given state-action pair). Thus computing $J^*$ is at the heart DP methods \cite{BertB} such as value-, or policy-iteration and linear programming (LP) \eqref{mdplp} which can be used in practice when the MDP has a tractable number of states. However, when the MDP has a large number of states, using DP methods to obtain $J^*$ is tedious, since they involve computations in variables that are of the order of the number of states.
+
+Approximate dynamic programming (ADP) methods are based on DP methods, but employ (value) function approximation to ease the computational overhead encountered in MDPs with a large number of states. In particular, linear function approximation (LFA) has been used widely, wherein, $J^*$ is approximated by $J^*\approx\tj =\Phi \tr$, where $\Phi$ is an $n\times k$ feature matrix and $\tr\in \R^n$ is a weight vector (to be computed). Thus the solution is searched in the subspace spanned by the column vectors of $\Phi$. The linear representation helps in two ways. Firstly, given any state $s$, its approximate value can be recovered as $\tj(s)=\phi(s) \tr$ (where $\phi(s)$ is the $s^{th}$ row of $\Phi$). Secondly, a greedy policy $\tilde{u}=u_{\tj}$ (see \Cref{notations}-\eqref{greedy}) can be found using the approximate value function. Note that all computations are $O(k)$ which is independent of the number of states.
+
+It is natural to expect that approximations lead to errors and it is important to quantify the errors. For a given ADP method, theoretical performance analysis involves  bounding the error terms $||J^*-\tilde{J}||$  and $\norm{J^*-J_{\tu}}$ which denote the error in approximating the value function, and performance loss due to following policy $\tu$ respectively (where $\norm{\cdot}$ is an appropriate norm). Further, in most cases the error terms reveal some structure that can offer insights and act as guide to the designer of the ADP method (for example the choice of $\Phi$). The focus of this paper is to present the error analysis for generalized reduced linear programming (GRLP), a new ADP formulation which we introduce in \Cref{sec:grlp}.
+\end{comment}
+\fi
+%!TEX root =  autocontgrlp.tex
+\begin{comment}
+\section{Approximate Linear Programming: Successes and Challenges}
+When the MDP has a large number of states, it is difficult to solve for $J^*$ using either the linear program \eqref{mdplp} or other full state representation methods such as value iteration or policy iteration \cite{BertB}. A practical solution is to resort to function approximation. Linear function approximation, wherein the solution is searched in the subspace spanned by the column vectors of a given feature matrix $\Phi$.
+The approximate linear program (ALP) is obtained by making use of LFA in the LP, i.e., by introducing the new variables $r\in \Re^k$ and adding the extra constraint $J=\Phi r$ in \eqref{mdplp} with $\Phi \in \Re^{n\times k}$ \citep{SchSei85}.
+By substitution, this leads to
+\begin{align}\label{alp}
+\begin{split}
+\min_{r\in \Re^k}\, &c^\top \Phi r\,\,\,
+\text{s.t.}\mb \Phi r\geq T \Phi r,
+\end{split}
+\end{align}
+where $J\geq TJ$ is a shorthand for the $nd$ constraints in \eqref{mdplp} and $\Phi$ is a feature matrix whose first column is $\one$. Unless specified otherwise we use $\tr$ to denote an arbitrary solution to ALP, and we let $\tj=\Phi \tr$ to denote the corresponding approximate value function and $\tu$ to denote the greedy policy w.r.t. $\tj$.
+The following is a preliminary error bound for ALP from \cite{ALP}:
+\begin{theorem}[Error Bound for ALP]
+\begin{align*}
+\norm{J^*-\tj}_{1,c}\leq \frac{2}{1-\alpha}\min_{r}\norm{J^*-\Phi r}_\infty
+\end{align*}
+\end{theorem}
+%For a more detailed treatment of ALP and sophisticated bounds, the reader is referred to \cite{ALP}.
+%\subsection{Approximating the Constraints}
+The ALP is a linear program in $k$ ($<<n$) variables as opposed to the LP in \eqref{mdplp} which has $n$ variables. Nevertheless, ALP has $nd$ constraints (same as the LP) which is an issue when $n$ is large and calls for constraint approximation/reduction techniques. Most works in literature make use of the underlying structure of the problem to cleverly reduce the number of constraints of ALP. A good example is \cite{gkp}, wherein the structure in factored linear functions is exploited. The use of basis function also helps constraint reduction in \cite{Mor-Kum}. In \cite{ALP-Bor}, the constraints are approximated indirectly by approximating the square of the Lagrange multipliers. In \cite{petrik} the transitional error is reduced ignoring the representational and sampling errors.\par
+The most important work in the direction of constraint reduction is constraint sampling \cite{CS} wherein a reduced linear program (RLP) is solved instead of ALP. While the objective of RLP is same as that of ALP, RLP has only $m<<nd$ constraints \emph{sampled} from the original $nd$ constraints of ALP.  The following is a preliminary error bound for RLP from \cite{CS} holds for a special sampling distribution which is dependent on the optimal policy $u^*$ (see \cite{CS} for a detailed presentation):
+\begin{theorem}[Error Bound for RLP]
+Let $\mu_{u^*}\eqdef(1-\alpha)c^\top (I-\alpha P_{u^*})^{-1}$ be a probability distribution (of discounted number of visits) over the states $S$. Define $\psi_{u^*}$ to be the distribution amongst state-action pairs such that $\psi(s,a)\eqdef \frac{\mu_{u^*}}{d}$ and define $\theta\eqdef=\frac{1+\alpha}{2 c^\top J^*}\underset_{r\in \N}{\sup}\parallelJ^*-\Phi r \parallel_\infty$. Then for a given $\epsilon>0$ and $\delta>0$ it holds that
+\begin{align*}
+\norm{J^*-\Phi\tilde{r}_{RLP}}_{1,c}\leq \norm{J^*-\Phi\tilde{r}}_{1,c}+\epsilon \norm{J^*}_{1,c}
+\end{align*}
+for all $m\geq \frac{16d\theta}{(1-\alpha)\epsilon}\big(k\ln\frac{48d\theta}{(1-\alpha)\epsilon}+\ln \frac{2}{\delta}\big)$.
+\end{theorem}
+%A major gap in the theoretical analysis is that the error bounds are known for only a specific RLP formulated using idealized assumptions, i.e., under knowledge of $u^*$. However, RLP has be found to do well empirically in domains such as Tetris \cite{CST} and controlled queues \cite{CS}.
+\subsection{Open Questions}
+Interestingly, RLP has nevertheless been found to do well empirically in domain such as Tetris \cite{CST} and controlled queues \cite{CS} even when the constraints were sampled using distribution other than the ideal distribution. This fact indicates a gap in the theoretical analysis and points to the need for a more elaborate theory that addresses the issue of constraint approximation. In this paper, we answer the following questions related to constraint reduction in ALP that have so far remained open. \\
+$\bullet$ As a natural generalization of RLP, what happens if we define a generalized reduced linear program (GRLP) whose constraints are positive linear combinations of the original constraints of ALP?\\
+$\bullet$ Unlike \cite{CS} which provides error bounds for a specific RLP formulated using an idealized sampling distribution, is it possible to provide error bounds for any GRLP (and hence any RLP)?
+In this paper, we address both of the questions above.
+\end{comment}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{The Linearly Relaxed ALP}\label{sec:grlp}
+In this section we introduce the computational model used and the ``Linearly Relaxed Approximate Linear Program''
+a relaxation of the ALP.
+
+As discussed in the introduction, we are interested in methods that compute a good approximation to the optimal value function.
+As noted earlier, at the expense of a modest additional cost, knowing an $O(\epsilon)$ approximation to $J^*$ at a few states suffices to compute actions of an $O(\epsilon)$-optimal policy. We will take a more general view, and we will consider calculating good approximations to $J^*$ with respect to a weighted $1$-norm, where the weights $c$ form a probability distribution over $\S$. Recall that the weighted $1$-norm $\norm{J}_{1,c}$ of a vector $J\in \Re^S$ is defined as $\norm{J}_{1,c}  = \sum_s c(s) |J(s)|$. Note that here and in what follows we identify elements of $\Re^\S$ (functions, mapping $\S = \{1,\dots,S\}$ to the reals) with elements of $\Re^S$ in the obvious way. This allows us to write e.g. $c^\top J$, which denotes $\sum_s c(s) J(s)$.
+
+To introduce the optimization problem we study, first recall that 
+the optimal value function $J^*$ is the solution of the fixed point equation $TJ^* = J^*$. 
+It follows from the definition of $T$ that $J^* = \max_u T_u J^* \ge T_u J^*$ for any $u$, 
+where $\ge$ is the componentwise partial ordering of vectors ($\le$ is the reverse relation).
+With some abuse of notation, we also introduce $T_a$ to denote $T_u$ where $u(s) = a$ for any $s\in \S$. 
+It follows that $J^* \ge T_a J^*$ for any $a\in \A$ and also that $T = \max_a T_a$, where again the maximization is componentwise.
+We call a vector $J$ that satisfies $J \ge T_a J$ for any $a\in A$ \emph{superharmonic}. Note that this is a set of linear inequalities. 
+By our note on $T$ and $(T_a)_a$, these inequalities can also be written compactly as $J \ge T J$.
+\if0
+Since $T$ is \emph{monotone} (i.e., for any $J_1\le J_2$ it holds that $TJ_1 \le T J_2$) and can be seen to be an $\alpha$-contraction with respect to the maximum norm, if $J$ is superharmonic then $J \ge T J \ge T^2 J \ge \dots \ge J^*$, where the last inequality follows since $T$ is an $\alpha$-contraction and hence $T^n J \to J^*$ in the maximum norm, and hence also componentwise.
+Thus, $J^*$ is the ``smallest'' superharmonic function. It follows than that 
+for any $c\in \Re_+^S \doteq [0,\infty)^S$ and any superharmonic $J$, $c^\top J^*\le c^\top J$ and since $J^*$ is also superharmonic, $\min \{ c^\top J\,:\, J \ge T J \} = c^\top J^*$ and if $c$ is positive-valued then the minimizer of $c^\top J$ amongst all superharminoc functions is $J^*$.
+\fi
+It is not hard to show then that $J^*$ is the smallest superharminoc function (i.e., for any $J$ superharmonic, $J\ge J^*$). It also follows that for any  $c\in \Re_{++}^S \doteq (0,\infty)^S$, the unique solution to the linear program $\min\{ c^\top J \,:\, J \ge T J \} =\min \{ c^\top J\,:\, J \ge T_a J, a\in \A \} $ is $J^*$. 
+
+Now, let $\phi_1,\ldots,\phi_k : \S \to \Re$ be $k$ basis functions. 
+\todoc{I think we should use $d$ to denote the number of basis functions. Or at least $n$. Low priority.} 
+The \emph{Approximate Linear Program} (ALP) of \citet{SchSei85} 
+is obtained by adding the linear constraints $J = \sum_{i=1}^k r_i \phi_i$ to the above linear program. Eliminating $J$ then gives $\min\{ \sum_i r_i c^\top \phi_i \,:\, \sum_i r_i \phi_i \ge g_a + \alpha \sum_i r_i P_a \phi_i, a\in \A, r = (r_i)\in \Re^k \}$.
+As noted by \citet{SchSei85}, the linear program is feasible as long as $\one$, defined as the vector with all components being identically equal to one, is in the span of $\{\phi_1,\dots,\phi_k\}$. 
+\emph{For the purpose of computations, it is assumed that the values $c^\top \phi_i$, $i=1,\dots, k$ and the values $(P_a \phi_i)(s)$ and $g_a(s)$ can be accessed in constant time.} 
+This assumption can be relaxed to assuming that one can access $g_a(s)$ and $\phi_i(s)$ for any $(s,a)$ in constant time, as well as to that one can efficiently sample from $c$, from $P_a(s,\cdot)$ for any $(s,a)$ pair, 
+but the details of this are the beyond the scope of the present work. As shown by \citet{ALP}, if $\ralp$ denotes the solution to the above ALP then for $\Jalp \doteq \sum_i \ralp(i) \phi_i \doteq \Phi \ralp$ it holds that $\norm{\Jalp - J^*}_{1,c} \le \frac{2 \epsilon}{1-\alpha}$, where $\epsilon = \inf_r \norm{ J^* - \Phi r }_\infty$ is the error of approximating the optimal value with the span of the basis functions $\phi_1,\dots,\phi_k$ and $\norm{J}_\infty = \max_s |J(s)|$ is the maximum norm and $\Phi \in \Re^{S\times k}$ is the matrix formed by $(\phi_1,\dots,\phi_k)$. That the error of approximating $J^*$ with $\Jalp$ is $O(\epsilon)$ is significant: The user can focus on finding a good basis, leaving the search for the ``right'' coefficients to a linear program solver.
+
+While solving the ALP can be significantly cheaper than solving the LP underlying the MDP
+and thus it can be advantageous for moderate-scale MDPs,
+ \todoc{Give the big-Oh costs!} the number of constraints in the ALP is $SA$, 
+hence the ALP is still intractable for huge-scale MDPs.
+%While evaluating the objective and checking a single constraint for constraint violations can be done in constant time,
+%since the number of constraints in the ALP is equal to the number of state-action pairs, 
+%the ALP is still intractable in general.
+ To reduce the number of constraints, we consider a relaxation of ALP 
+where the constraints are replaced with positive linear 
+combinations of them. 
+Recalling that the constraints took the form $J \ge g_a + \alpha P_a J$ (with $J = \Phi r$),
+choosing $m$ to be target number of constraints, for $1\le i \le m$, the $i$th new constraint is given by
+$\sum_a w_{i,a}^\top J \ge \sum_a w_{i,a}^\top(g_a + \alpha P_a J)$, 
+where the choice of $m$ and that of the vectors $w_{i,a}\in \Re_+^S$ is left to the user.
+Note that this results in a linear program with $k$ variables and $m$ constraints, which can be written as
+\begin{align}\label{grlp}
+\begin{split}
+&\underset{r\in \Re^k}{\min}\, \, c^\top \Phi r\\
+&\text{s.t.}\mb  \,\sum_a W_a^\top \Phi r\geq \sum_a W_a^\top (g_a + \alpha P_a) \Phi r\,,
+\end{split}
+\end{align}
+where $W_a = (w_{1,a},\dots,w_{m,a}) \in \Re_+^{S \times m}$. 
+Note that the $(i,j)$th entry of the $m\times k$ constraint matrix of the resulting LP is
+$\sum_a  w_{i,a}^\top  \phi_j - \alpha \sum_a w_{i,a}^\top P_a \phi_j$ and assuming that $(w_{i,a})_{a}$ has $p$ nonzero
+elements, this can be calculated in $O( p )$ time, making the total cost of obtaining the constraint matrix to be $O(mkp)$ regardless the value of $S$ and $A$. \todoc{Somewhere discuss that the cost of obtaining a policy will depend on $A$. 
+We can also discuss how $A$ could be folded into states.}
+
+We will call the LP in \eqref{grlp} the \emph{linearly relaxed approximate linear program (LRALP)}. 
+Any LP obtained using 
+any constraint selection/generation process can be represented by choosing an appropriate binary-valued matrix
+$W^\top = (W_1^\top,\dots,W_A^\top)\in \Re_+^{m\times SA}$. In particular, when the constraints are selected
+in a random process as suggested by \citet{CS}, the matrix $W$ would be a random, binary-valued matrix.
+
+Note that the LRALP may be unbounded. 
+Unboundedness could be avoided by adding an extra constraint of the form $r\in \N$ to the LRALP,
+for a properly chosen polyhedron $\N \subset \Re^k$.%
+\footnote{
+In particular, to obtain their theoretical result, \citet{CS} need the assumption that the set $\N$ 
+is bounded and that it contains $\ralp$. In fact, 
+the error bound derived by \citeauthor{CS} depends on the \emph{worst} 
+error of approximating $J^*$ with $\Phi r$ when
+$r$ ranges over $\N$. Hence, if $\N$ is unbounded, their bound is vacuous. In the context of a particular application, 
+\citet{CS} demonstrate that $\N$ can be chosen properly to control this term. 
+However, no general construction is presented to choose $\N$.}
+However, it seems to us that it is downright misleading to think that guaranteeing a bounded solution 
+will also lead to reasonable solutions.
+Thus we will stick to the above simple form, forcing a discussion of how $W$ should be chosen to get meaningful results.%
+\footnote{
+The only question is whether there is some value in adding constraints beyond choosing $W$ properly.
+Our position is that the set $\N$ would most likely be chosen based on very little and general information;
+the useful knowledge is in choosing $W$, not in choosing some general set $\N$. 
+Since randomization does not guarantee bounded solutions, \citet{ALP} must use $\N$:
+In their case, $\N$ incorporates 
+all the knowledge that makes the LP bounded. 
+}
+
+Further insight into the choice of $W$ can be gained by
+considering the Langrangians of the ALP and LRALP. To write both LP's in a similar form let us introduce $E = (I_{S\times S},\dots,I_{S\times S})^\top$, where $I_{S\times S}$ is the $S\times S$ identity matrix. Further, let $H:\Re^S \to \Re^{SA}$ be the operator defined by $(HJ)^\top = ( (T_1 J)^\top, \dots, (T_A J)^\top )$. Note that $H$ is a linear operator, which we call the \emph{linear Bellman operator}. 
+Then, the ALP can be written as $\min\{ c^\top \Phi r \,|\, E \Phi r \ge H \Phi r \}$, while LRALP takes the form  
+$\min\{ c^\top \Phi r \,|\, W^\top E \Phi r \ge W^\top H \Phi r \}$. 
+Hence, their Langrangians are $\mathcal{L}_{\alp}(r,\lambda) = c^\top \Phi r+\lambda^\top (H\Phi r-E\Phi r)$
+$\mathcal{L}_{\lralp}(r,q) = c^\top \Phi r+q^\top W^\top (H\Phi r-E\Phi r)$. Thus, we can view $W q$ as a ``linear approximation''
+to the dual variable $\lambda \in \Re_+^{SA}$. 
+This suggests that perhaps $W$ should be chosen such that it approximates well the optimal dual variable.
+If $\Phi$ spans $\Re^{S}$, the optimal dual variable $\lambda^*$ is known to be the discounted occupancy measure underlying the optimal policy (Theorem 3.18, \cite{Kall17}), suggesting that the role of $W$ is very similar to the role of $\Phi$ excepts that the subspace spanned by the columns of $W$ should ideally be close to $\lambda^*$.
+
+\if0
+\textbf{Linear function approximation in Primal and Dual Variables:} Let us look at the Lagrangian of ALP and GRLP in
+\eqref{lag} and \eqref{lag2} respectively, i.e.,
+\begin{align}\label{lag}
+\tilde{L}(r,\lambda)=c^\top \Phi r+\lambda^\top (T\Phi r-\Phi r), \\ \label{lag2}\hat{L}(r,q)=c^\top \Phi r+q^\top W^\top (T\Phi r-\Phi r).
+\end{align}
+Thus, when $Wq = \lambda$, i.e., when $W$ is a set of basis functions that allow
+a low dimensional linear representation of the dual variables $\lambda$,
+the two problems are the same.
+%Note that $ Wq\approx \lambda$ in \eqref{lag2} is linear function approximation of the Lagrange multipliers.
+Hence, while ALP employs LFA in its objective function (i.e., use of $\Phi r$), GRLP employs linear approximation both in the objective function ($\Phi r$) as well as the constraints (use of $W$).
+%Further, $W$ can be interpreted as the feature matrix that approximates the Lagrange multipliers as $\lambda\approx Wq$, where $\lambda \in \Re^{nd}, r\in \Re^m$.
+To get a sense of how $W$ should be chosen, recall that
+the optimal Lagrange multipliers are the discounted number of visits to the ``state-action pairs'' under an optimal policy $u^*$, i.e.,
+\begin{align}
+\lambda^*(s,u^*(s))&=\big(c^\top(I-\alpha P_{u^*})^{-1}\big)(s)\nn\\
+&= \big(c^\top(I+\alpha P_{u^*}+\alpha^2 P_{u^*}^2+\ldots)\big)(s),\nn\\
+\lambda^*(s,a)&=0, \qquad \text{for all } a \neq u^*(s),\nn
+\end{align}
+where $P_{u^*}$ is the probability transition matrix under $u^*$ ($P_{u^*}(s,s') = P_{u^*(s)}(s,s')$, $s,s'\in S$) \cite{dolgov}. Even though we might not have the optimal policy $u^*$ in practice, the fact that $\lambda^*$ is a probability distribution and that it is a linear combination of $\{P_{u^*},P^2_{u^*},\ldots\}$ hints at the kind of features that might be useful for constructing the $W$ matrix.
+\fi
+%!TEX root =  autocontgrlp.tex
+\section{Proof of \cref{cmt2}}\label{sec:improv}
+In this section we present the proof of the main result, \cref{cmt2}. 
+The proof uses contraction-arguments. 
+\newcommand{\G}{\Gamma}
+We will introduce a novel contraction operator, $\hg: \Re^S \to \Re^S$, that captures the distortion introduced
+by the extra constraint in ALP and the relaxation in LRALP, respectively. 
+Then we relate the solution of LRALP to the fixed point of $\hg$.
+
+Note that for the proof it suffices to consider the case when $\Jlro$ is finite-valued because otherwise the bound is vacuous.
+Also, recall that it was assumed that $\psi$ lies in the column space of $\Phi$, while $\beta_\psi$, the $\alpha$-discounted stability of $\psi$ w.r.t. the MDP (cf. \eqref{eq:betadef}) is strictly below one. We will let $r_0\in \R^k$ be such that $\psi = \Phi r_0$.
+We also assumed that the matrix $W$ is nonnegative valued, while $c$ specifies a probability distribution over $\S$: $\sum_s c(s) = 1$ and $c\in \R_+^S$.
+
+The operator $\hg$ are defined as follows: For $J\in \Re^S$, $s\in \S$,
+\begin{align*}
+%(\G J)(s) & = \min\{ r^\top \phi(s) \,:\, \Phi r \ge T J ,\, r\in \Re^k \}\,,\\
+(\hg J)(s) & = \min\{ r^\top \phi(s) \,:\, W^\top E \Phi r \ge W^\top E H J ,\, r\in \Re^k\}\,.
+\end{align*}
+Note that $(\hg J)(s)$ mimics the definition of ALP with $c = e_s$, except that the constraint $J = \Phi r$ is dropped.
+%The same holds for $\hg$ in relation to LRALP.
+%Letting $\F(J) = \{ \Phi r\,:\, \Phi r \ge T J, r\in \Re^k \}$ be the \emph{common} feasible set of the LP defining $(\G J)(s)$.
+%It follows that for any $V\in \F(J)$, $V \ge \Gamma J$. Further, $\Gamma J \ge T J$.
+
+Let us now recall some basic results from the theory of contraction maps.
+First, let us recall the definition of contractions. Let $\norm{\cdot}$ be a norm on $\Re^S$ and $\rho>0$.
+We say that the map $B: \Re^S \to \Re^S$ is $(\rho,\norm{\cdot})$-Lipschitz if for any $J,J'\in \Re^S$, $\norm{ BJ - BJ' } \le \rho \norm{J-J'}$. We say that $B$ is a \emph{$\norm{\cdot}$-contraction} with factor $\rho$ 
+if it is $(\rho,\norm{\cdot})$-Lipschitz and $\rho<1$. It is particularly easy to check whether a map is a contraction map with respect to a weighted maximum norm 
+if it is known to be \emph{monotone}.
+Here, $B$ is said to be monotone if for any $J\le J'$, $J,J'\in \R^S$, $BJ \le BJ'$ also holds, where $\le$ is the componentwise
+partial order between vectors. We start with the following characterization of monotone contractions with respect to weighted maximum norms: 
+\begin{lemma}
+\label{lem:maxnormmn}
+Let $B:\R^S \to \R^S$, $\psi: \S \to \R_{++}$, $\beta\in (0,1)$.
+The following are equivalent:
+\begin{enumerate}[(i)]
+\item $B$ is a monotone contraction map with contraction factor $\beta$ with respect to $\norm{\cdot}_{\psi,\infty}$.
+\label{lem:item:mc}
+\item For any $J,J'\in \R^S$, $t\ge 0$, $J \le J' + t \psi$ implies that $BJ \le BJ' + \beta t \psi$.
+\label{lem:item:iq}
+\end{enumerate}
+\end{lemma}
+%The proof, which essentially copies Lemma 3.1 of \cite{Kall17}, is given for completeness:
+\begin{proof}
+The proof is  trivial modification of the proof of Lemma 3.1 of \cite{Kall17} and is thus left as an exercise.
+\if0
+%Note first that for any $\eps\ge 0$, $-\eps \psi \le J - J' \le \eps \psi$ implies that $\norm{J-J'}_{\mn} \le \eps$.
+Introduce $\cdot$ to denote elementwise products: Thus, $(\psi \cdot J)(s) = \psi(s) J(s)$. 
+We also let $\psi^{-1}(s) = 1/\psi(s)$ and we will use the shorthand $\norm{\cdot} = \norm{\cdot}_{\mn}$.
+
+Let us first prove \eqref{lem:item:mc} $\Rightarrow $ \eqref{lem:item:iq}. 
+Thus, assume that $B$ is a monotone contraction
+map with factor $\beta$. Take any $J,J'$, $t>0$, $J \le J'+ t\psi$. 
+We have $BJ = B(J + t \psi) - B J' + B J' \le (\psi^{-1} \cdot (B(J + t \psi) - B J' ))\cdot \psi + BJ'
+\le \norm{B(J+t\psi) - BJ'} \psi + BJ' \le \beta t \norm{J-J'} \psi +  BJ'$.
+
+For the reverse direction, note that monotinicity follows by taking $t=0$.
+Now, let $\eps = \norm{J-J'}$. Then, $J \le J'+ \eps \psi$ and $J' \le J+\eps \psi$.
+By monotonicity and the assumed property of $B$ (using $t=\eps\ge 0$), 
+$-\beta \eps \psi \le BJ - BJ' \le \beta \eps \psi$, which implies
+that $\norm{BJ - BJ'} \le \beta$.
+\fi
+\end{proof}
+\begin{corollary}
+\label{maxnormmn}
+\label{cor:maxnormmn}
+If $B$ is monotone and there exists some $\beta\in [0,1)$ such that for any $J\in \Re^S$ and $t>0$,
+\begin{align}
+\label{eq:shiftmn}
+B( J + t \psi) \le B J + \beta t \psi
+\end{align} 
+then $B$ is a $\norm{\cdot}_{\mn}$ contraction with factor $\beta$.
+\end{corollary}
+\begin{proof}
+Let $J,J'\in \R^S$, $t\ge 0$ and assume that $J\le J' + t \psi$. By monotonicity $BJ \le B(J'+ t \psi)$, while
+by~\eqref{eq:shiftmn}, $B(J'+t\psi) \le BJ' + \beta t \psi$. Hence, $BJ \le BJ' + \beta t \psi$. 
+This shows that \eqref{lem:item:iq} of \cref{lem:maxnormmn} holds. 
+Hence, by this lemma, $B$ is a contraction with factor $\beta$ with respect to $\norm{\cdot}_{\mn}$.
+\end{proof}
+\if0
+\begin{proof}
+First, we show that for any $t\ge 0$,  $J\in \Re^n$,
+$B( J - t \psi) \ge B J - \beta t \psi$ also holds.
+To see this define $J' = J-t\psi$. Then, $J = J'+t\psi$, hence $B J \le B J' + \beta t \psi$. Reordering this inequality gives the result.
+Let $\eps = \norm{J_1 - J_2}_{\mn}$, where $J_1,J_2\in \Re^n$ are arbitrary.
+Then $J_2 - \eps \psi \le J_1 \le J_2 + \eps \psi$. 
+By the monotonicity of $B$,
+$B(J_2 - \eps \psi) \le B J_1 \le B(J_2 + \eps \psi)$. 
+Using~\eqref{eq:shiftmn}, we get 
+$B J_2 - \beta \eps \psi \le B J_1 \le B J_2 + \beta \eps \psi$, i.e., $-\beta \eps \psi \le B J_1 - B J_2 \le \beta \eps \psi$, from which the result follows.
+\end{proof}
+\fi
+
+\if0
+In this section we present the main results of this paper in \Cref{cmt2} (we state improved bounds in \Cref{sec:improv}). Our bounds are expressed in terms of two novel contractions operators which we define in \Cref{lubpop,alubpop}. We now define two projection operators that are central to our error analysis and in them we assume that the set $\N'\subset \Re^k$ is such that $\N' = \N + t \one$ for any $t\in \Re$.
+%The least upper bound (LUB) projection operator $\Gamma \colon \Re^n \ra\Re^n$ is defined below, see \eqref{gamdef}.
+\begin{definition}\label{lubpop}
+Given $J\in \Re^n$ and the nonnegative valued vector $c\in \Re^n_+$, define $r_{c,J}$ to be the solution to
+\begin{align}
+\label{lubplp}
+\begin{split}
+\underset{r\in \N'}{\min} &\,\, c^\top \Phi r\,\mb
+\text{s.t.} \mb \Phi r\geq  TJ.
+\end{split}
+\end{align}
+For $J\in \Re^n$, $\Gamma J$, the \emph{least upper} (LU) projection of $J$ is defined as
+\begin{align}\label{gamdef}
+(\Gamma J)(i)\eqdef(\Phi r_{e_i,J})(i),\quad i=1,\ldots,n\,.
+\end{align}
+\end{definition}
+The definition of the second operator is as follows:
+\begin{definition}\label{alubpop}
+Given $J\in \Re^n$ and the nonnegative valued vector $c\in \Re^n_+$, define $r'_{c,J}$ to be the solution to
+\begin{align}\label{alubplp}
+\underset{r\in \N'}{\min}& \,\mb c^\top \Phi r\,\mb
+\text{s.t.} \,\,\, W^\top E \Phi r\geq W^\top HJ.
+\end{align}
+The \emph{approximate least upper} (ALU) projection operator
+$\hg \colon \Re^n \ra \Re^n$ is defined as
+\begin{align}\label{tgamdef}
+(\hg J)(i)\eqdef(\Phi r'_{e_i,J})(i), \mb i=1,\ldots,n\,, J\in \Re^n\,.
+\end{align}
+\end{definition}
+\begin{remark}\label{ubrem}
+To understand the meaning of $\Gamma$ (and $\hg$) define
+\begin{align}\label{ubclass}
+\F_J\eqdef\{\,\Phi r\,:\,\Phi r\geq TJ, r\in \N'\,\},
+\end{align}
+where $J\in \Re^n$.
+Disregarding the constraint $r\in \N'$,
+$\F_J$ contains all vectors in the span of $\Phi$ that upper bound $TJ$. Further, since $(\Gamma J)(i) = \min\{ V(i) \,:\, V\in \F_J \}$, it also follows that $ V\ge \Gamma J $ holds for any $V\in \F_J$. Also $\Gamma J\geq T J$.\par
+The operators $\Gamma$ and $\hg$ are closely related to ALP \eqref{alp} and GRLP \eqref{grlp} respectively and are only analytical tools that we will need to express our bounds and need not be computed in practice. It turns out that the novel operators ($\Gamma$ and $\hg$) are contraction maps (see \Cref{hgmaxcontramn}), a fact that is a key to our results (\Cref{cmt2mn,polthe}). At the outset we are interested in the candidate value functions in the constraint set $\N$ and want to study them using $\Gamma$ and $\hg$. However since the basis $\Phi$ contains $\one$ we make it helps our analysis to define the set $\N'$ in \Cref{lubplp,alubplp} to be `$\N$ plus its translations by $\one$'.
+\end{remark}
+
+\fi
+
+\if0
+\subsection{Properties of the Bellman Operator}
+We now state without proof the most important properties of the Bellman operator(s).
+The proofs are immediate from the definitions, but can also be found in \cite{BertB}.
+\begin{comment}
+First, we introduce some extra notation:
+For $J_1,J_2\in \Re^n$, we write $J_1\le J_2$ if $J_1(s)\le J_2(s)$ holds for all $s\in S$.
+We use $\one \in \Re^n$ to denote a vector with all entries $1$.
+The maximum norm $\norm{\cdot}_{\infty}$ is defined by $ \norm{v}_{\infty} = \max_{s\in S} |v(s)|$.
+\end{comment}
+\begin{lemma}\label{tprop} The following hold:
+\begin{enumerate}[(i)]
+\item \label{monotone}$T$ is a monotone map, i.e., given $J_1,J_2 \in \Re^n$ such that $J_1\leq J_2$, we have $T J_1\leq T J_2$.
+\item \label{shift}
+Given $J\in \Re^n$ and $t \in \Re$, we have $T(J+t\one)=TJ+\alpha t\one$.
+\item \label{maxnorm}
+If $T: \Re^n \to \Re^n$ is any operator that is monotonous and satisfies~\eqref{shift} then
+$T$ is a $\max$-norm contraction operator with contraction factor $\alpha \in (0,1)$, i.e., given $J_1, J_2 \in \Re^n$,
+$
+\norm{TJ_1-TJ_2}_\infty\leq \alpha \norm{J_1-J_2}_\infty.
+$
+\item \label{uniquesol}
+$J^*$ is a unique fixed point of $T$, i.e., $J^*=TJ^*$.
+\end{enumerate}
+\end{lemma}
+\begin{corollary}
+If $J\in \Re^n$ is such that $J\geq TJ$ then $J\geq TJ^2\geq \ldots \geq J^*$.
+\end{corollary}
+Though \cref{tprop} are stated for the Bellman operator $T$, the results also hold for $H$ as well.\par
+We now present the analysis to derive the improved bounds where the idea is to show that the novel projection operators ($\Gamma/\hg$) are contraction maps. To this end, we go through steps similar to \Cref{tprop}-\eqref{monotone},~\eqref{shift} and ~\eqref{maxnorm}. Much the results that ensue are based on `Lyapunov' analysis where the idea is to replace the constant function $\one$ by a certain Lyapunov function (see \Cref{def:lyap}) and the $\norm{\cdot}_{\infty}$ by a weighted max-norm (see \Cref{notations}-\eqref{norms}).
+
+\subsection{Analysis using Lyapunov Functions}
+\begin{definition}\label{def:lyap}
+Let $c,\rho,\chi:S \to \Re_+$ be positive-valued functions. Then for $J\in \Re^n$, $a\in A$ and $s\in S$, define
+the discounted maximal inflation of $\chi$ due to $P = (p_a)_{a\in A}$ as $\beta_{\chi}=\max_{s \in S} \frac{\underset{a \in A}{\max}\big(\alpha\sum_{s'}p_a(s,s')\chi(s')\big)}{\chi(s)}$.
+The function $\chi:S\to\Re_+$ is a \emph{Lyapunov} function for $P = (p_a)_{a\in A}$ if $\beta_{\chi}<1$.
+\end{definition}
+\begin{assumption}\label{grlpassmp}
+\begin{enumerate}[(i)]
+%\item \label{one} The first column of the feature matrix $\Phi$ (i.e., $\phi_1$) is $\one \in \Re^n$.
+\item \label{lyap} $\psi\colon S \ra \Re_+$ is a Lyapunov function for $P$
+and is present in the column span of the feature matrix $\Phi$: For some $r_0\in \Re^k$, $\Phi r_0 = \psi$.
+\item \label{ass:n4} The set $\N'$ is such that $\N' = \N + t r_0$ for any $t\in \Re$, where $r_0\in \Re^k$ such that $\Phi r_0 = \psi$.
+\item \label{wassmp} $W \in \Re^{nd\times m}_+$ is a matrix with all positive entries.
+\end{enumerate}
+\end{assumption}
+The authors of \cite{ALP} express the error bounds in terms of $\frac{1}{1-\beta_{\psi}}$.  A smaller $\beta_{\psi}$ loosely implies `stability' of the the underlying MDP,  with smaller values representative of higher stability. Prior works in ALP literature \cite{ALP,SALP,CS} make use of Lyapunov functions based analysis to obtain error bounds that exploit the structure of the underlying MDP. In particular, the prior bounds suggests that ALP is likely to generate good approximations when the underlying MDP is stable. We also adopt a similar approach by stating our results using Lyapunov function based arguments.
+\fi
+
+Let us now return to the proof of our main result. Recall that the goal is to bound 
+$\norm{J^*-\Jlr}_{1,c}$ through relating this deviations from the fixed point of $\hg$, which was promised to be a contraction.
+Let us thus now prove this.
+%\emph{Since all $1$-norms will use the same weighting $c$, we will abbreviate $\norm{\cdot}_{1,c}$ to $\norm{\cdot}_1$. Similarly, since all maximum norms use the same weighting $\psi$, we will abbreviate $\norm{\cdot}_{\infty,\psi}$ to $\norm{\cdot}_{\infty}$.}
+For this, it suffices to show that $\hg$ satisfies the conditions of \cref{cor:maxnormmn}.
+In fact, we will see this holds with $\beta =\beta_\psi$. 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{proposition}\label{tgmonotone}\label{gshiftmn}
+The operator $\hg$ satisfies the conditions of \cref{cor:maxnormmn} with $\beta =\beta_\psi$, and is thus a 
+$\norm{\cdot}_{\mn}$-contraction with coefficient $\beta_\psi$. 
+%For $J_1, J_2\in \Re^n$ such that $J_1\leq J_2$, we have $\hg J_1\leq \hg J_2$.
+\end{proposition}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{proof}
+First, note that (as it is well known) $H$ is monotone (all 
+the $P_a$ matrices in the definition of $H$ are nonnegative valued) 
+and that it satisfies an inequality similar to \eqref{eq:shiftmn}: For any $t\ge 0$, $J\in \R^S$,
+\begin{align}\label{eq:psilin}
+\begin{split}
+%T(J+ t \psi ) \le TJ + \beta_{\psi}\,t\,  \psi,\\
+H(J+ t \psi ) \le HJ + \beta_{\psi}\,t\,  E  \psi\,.
+\end{split}
+\end{align}
+This follows again because our assumption on $\psi$ implies that for any $a\in \A$, $\alpha P_a \psi \le \beta_{\psi} \psi$.
+
+Let us now prove that $\hg$ is monotone. 
+Given $J\in \Re^S$, let $\F'(J)\eqdef\{\,\Phi r\,: W^\top E \Phi r\geq W^\top HJ, r\in \Re^k\,\}\,$. 
+Choose any $s\in \S$. Since $J_1\leq J_2$, $W$ is nonnegative valued and $H$ is monotone, 
+%\Cref{tprop}-\eqref{monotone} and \cref{grlpassmp}-\eqref{wassmp} 
+we have $W^\top H J_1\leq W^\top H J_2$. 
+Hence, $\F_{J_2} \subset \F_{J_1}$ 
+and thus $(\hg J_1)(s) \le (\hg J_2)(s)$.  Since $s$ was arbitrary, monotonicity of $\hg$ follows. 
+
+Let us now turn to proving that \eqref{eq:shiftmn} holds with $\beta =\beta_\psi$.
+By definition, for $s\in \S$, $t\ge 0$, $J\in \R^S$, 
+$(\hg (J+t\psi) )(s) = \min\{ r^\top \phi(s) \,:\, W^\top E\Phi r \ge W^\top H(J+t\psi), r\in \Re^k \}$.
+By \eqref{eq:psilin}, 
+$H(J+t\psi) \le HJ + t \beta_\psi E \psi$ 
+and hence $W^\top H(J+t\psi) \le W^\top (HJ + t \beta_\psi E \psi)$. 
+Thus,
+$(\hg (J+t\psi) )(s) \le  \min\{ r^\top \phi(s)\,:\, W^\top E\Phi r \ge W^\top (HJ+t\beta_\psi E \psi), r\in \Re^k \}$.
+
+To finish, we need the following elementary observation:
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{claim}\label{lpsol}
+Let $A\in \Re^{u\times v}$, $b\in \Re^u,d\in \Re^v$ and $b_0=Ax_0$ for
+some $x_0 \in \Re^v$. % $\N' \subset \Re^v$ such that $\N' =x_0+ \N'$. 
+Then
+\begin{align*}
+\begin{split}
+\MoveEqLeft \min\{d^\top x:Ax\geq b+b_0, x\in \Re^v\} \nn\\
+&=\min\{d^\top y:Ay \geq b, y \in \Re^v \}+d^\top x_0.
+\end{split}
+\end{align*}
+\end{claim}
+\begin{proof}[Proof of \cref{lpsol}]
+Set $y = x-x_0$.
+\end{proof}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Now, using \Cref{lpsol} with $A=W^\top E \Phi$, $b=W^\top HJ$, $d=\phi(s)$, $b_0=t\beta_\psi W^\top E \psi$
+and $x_0=t \beta_\psi r_0$,  thanks to $\Phi r_0 = \psi$ we have $A x_0 = b_0$.
+Hence the desired statement follows from the claim.
+\end{proof}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Let us now return to bounding $\norm{J^*-\Jlr}_{1,c}$.
+For $x\in \Re$, let $(x)^-$ be the negative part of $x$: $(x)^- = \max(-x,0)$. Then, $|x| = x + 2 (x)^-$. For a vector $J\in \R^S$, 
+we will write $(J)^-$ to denote the vector obtained by applying the negative part componentwise.
+We consider the decomposition
+\begin{align}
+\label{eq:maindec}
+\norm{\Jlr-J^*}_{1,c} = c^\top\!( \Jlr - J^* ) + 2c^\top\!( \Jlr - J^* )^-\,.
+\end{align}
+Let $\hv$ be the fixed point $\hg$. We know claim the following:
+\begin{claim}
+We have $\Jlr \ge \hv$, $c^\top \Jalp \ge c^\top \Jlr$.
+\end{claim}
+\begin{proof}
+The inequality $c^\top \Jalp \ge c^\top \Jlr$  follows immediately from the definitions of $\Jalp$ and $\Jlr$.
+
+To prove the first part let $s\in \S$,  $c=e_s$ and let $r_s$ be a solution to LRALP in \eqref{grlp}.
+For $s\in \S$, let $V_0(s)= \min_{s'\in \S} r_{s'}^\top \phi(s)$.
+
+It suffices to show that $V_1\eqdef \hg V_0 \le V_0 \le \hj$.
+Indeed, if this holds then
+$V_{n+1} = \hg V_n$, $n\ge 1$, satisfies $V_{n+1}\le V_n$ and $V_n \to \hv$ as $n\to\infty$
+since $\hg$ is a monotone contraction mapping.
+
+
+Since  $r_{s'}^\top \phi(s) \ge r_s^\top \phi(s)$ %$(\Phi r_{s'})(s) \ge (\Phi r_s)(s)$
+ also holds for any $s,s'\in \S$,
+we have $V_0(s)  = r_s^\top \phi(s)$. %$(\Phi r_s)(s)$. 
+Also, since $\hj(s) \ge r_s^\top \phi(s)$, % (\Phi r_s)(s)$,$s\in \S$
+it follows that $\hj\geq V_0$. 
+Now,  fix some $s\in \S$ and
+define $r'_{e_s,V_0}$ be the solution to the linear program defining $(\hg V_0)(s)$.
+We need to show that $V_1(s)=(\hg V_0)(s) = ( r'_{e_s,V_0})^\top \phi(s) \leq V_0(s)$. 
+By the definition of $r'_{e_s,V_0}$ we know that $( r'_{e_s,V_0})^\top \phi(s) \le r^\top \phi(s)$ %$(\Phi r)(s)$
+holds for any $r\in \Re^k$ such that $W^\top E \Phi r \ge W^\top H V_0$. 
+Thus, it suffices to show that $r_s$ satisfies $W^\top E \Phi r_s \ge W^\top H V_0$. 
+By definition, $r_s$ satisfies $W^\top E \Phi r_s \ge W^\top H \Phi r_s$.
+Hence, by the monotone property of $H$ and since $W$ is nonnegative valued, % and \cref{grlpassmp}-\eqref{wassmp} 
+it is sufficient if $\Phi r_s \ge V_0$.
+This however follows from the definition of $V_0$.
+\end{proof}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Thanks to the previous claim, $(\Jlr - J^*)^- \le (\hv - J^*)^-$ and $c^\top \Jlr \le c^\top \Jalp$. Hence, 
+from \eqref{eq:maindec} we get
+\begin{align*}
+%\label{eq:maindec2}
+\norm{\Jlr-J^*}_{1,c} \le c^\top\!( \Jalp - J^* ) + 2c^\top\!( \hv - J^* )^-\,.
+\end{align*}
+By Theorem 3 of \cite{ALP}, the first term is bounded by $2 \frac{c^\top \psi}{1-\beta_\psi} \epsilon$, where
+recall that $\epsilon = \inf_{r} \norm{J^* - \Phi r}_{\mn}$. Hence, it remains to bound the second term.
+
+For this, note that for any $J\in \R^S$, 
+$(J)^-\le |J|$
+and also that $\norm{J}_{1,c} \le c^\top \psi \norm{ J }_{\mn}$. Hence, we switch to bounding 
+$\norm{J^* - \hv }_{\mn}$.
+A standard contraction argument gives
+\begin{align*}
+\norm{J^* - \hv }_{\mn}
+& =   \norm{ J^* - \hg J^ + \hg J^* -\hg \hv }_{\mn} \\
+& \le \norm{ J^* - \hg J^*}_{\mn} + \norm{\hg J^* - \hv }_{\mn} \\
+& \le \norm{ J^* - \hg J^*}_{\mn} + \beta_\psi \norm{\hg J^* - \hv }_{\mn}\,.
+\end{align*}
+Reordering and using another triangle inequality we get
+\begin{align*}
+\norm{J^* - \hv }_{\mn} \le \frac{
+\norm{J^* - \Jalpo}_{\mn} + \norm{ \Jalpo - \hg J^* }_{\mn}
+}{1-\beta_\psi}\,.
+\end{align*}
+We bound the term $\norm{J^* - \Jalpo}_{\mn}$ in the following lemma:
+\begin{lemma}\label{bestbndmn}
+We have
+$ % \begin{align}
+\norm{J^*-\Jalpo}_{\mn}\leq 2 \epsilon
+$, %\end{align}
+where recall that $\epsilon = \inf_{r\in \Re^k} \norm{ J^*-\Phi r }_{\mn}$. 
+\end{lemma}
+\begin{proof}
+Let $r^*\eqdef \argmin_{r\in \Re^k} \norm{ J^*-\Phi r }_{\mn}$. 
+First, notice that $\Jalpo \ge J^*$.
+Hence, $0\le \Jalpo - J^*$.
+Now let $r' = r^* + \epsilon r_0$. Then, 
+$\Phi r' = \Phi r^* + \epsilon \psi \ge J^*$, where the equality follows by the definition of $r_0$ and
+the inequality follows by the definition of $\epsilon$.
+Hence, $r'$ is in the feasible set of the LP defining $\Jalpo$ and thus $\Jalpo \le \Phi r'$.
+Thus, $0\le \Jalpo - J^* \le \Phi r^* - J^* + \epsilon \psi$. Dividing componentwise by $\psi$,
+taking absolute value and then taking maximum of both sides gives the result.
+\end{proof}
+The proof of the main result is finished by noting that $\hg J^* = \Jlro$ and the chaining the inequalities we derived.
+
+\if0
+Now, recall further that if $B:\R^S \to \R^S$ is a $(\beta,\norm{\cdot})$-contraction then it has a unique fixed point $J^*_B\in \R^S$ (i.e., $B J^*_B= J^*_B$). Further, for any $J\in \R^S$,
+\begin{align}
+\label{eq:csdw}
+\frac{\norm{J-J^*_B}}{1-\beta} \le \norm{ BJ - J } \le (1+\beta) \norm{J-J^*_B}\,.
+\end{align}
+That is, $\norm{BJ-J}$ is closely tied to the distance of $J$ from $J^*_B$.%
+\footnote{This is also a standard result. The upper bound can be obtained using a triangle inequality and exploiting that $J^*_B$ is a fixed point of $B$ which is a contraction. The lower bound follows by writing $J - J^*_B = (\sum_{k=0}^n B^k J - B^{k+1} J ) + B^{n+1} J - B^{n+1} J^*_B$, taking norms using the triangle inequality together with the contraction property of $B$ and finally letting $n\to \infty$.}
+We will repeatedly apply this inequality.
+
+
+Let $\hv$ be the fixed point $\hg$.
+Then, by the triangle inequality,
+\begin{align*}
+\norm{J^*-\Jlr}_{1,c} \le \norm{J^*-\hv}_{1,c} +\norm{\hv-\Jlr}_{1,c}\,.
+\end{align*}
+Let us first bound the second term. Recall that $\Jlr = \Phi \rlr$.
+
+\if0
+We note in passing that if \cref{grlpassmp}-\eqref{lyap} holds, it follows that for any $J\in \Re^n$ and $t>0$,
+\begin{align}\label{eq:psilin}
+\begin{split}
+T(J+ t \psi ) \le TJ + \beta_{\psi}\,t\,  \psi,\\
+H(J+ t \psi ) \le HJ + E \beta_{\psi}\,t\,  \psi\,.
+\end{split}
+\end{align}
+\fi
+%\input{schematic}
+
+\noindent 
+%Note that under our assumptions on $\N$, $\hg$ is well-defined.
+%\begin{align*}
+%r^*\eqdef\argmin_{r\in R^k}\norm{J^*-\Phi r}_{\mn}\,.
+%\end{align*}
+%where $\psi$ is a Lyapunov function as in \cref{lyap}.
+
+
+
+\begin{corollary}\label{tmaxnormmn}
+$T$ is a $\norm{\cdot}_{\mn}$-contraction with factor $\beta_{\psi}$.
+\end{corollary}
+%Returning to $\hg$, since we already now that $\hg$ is monotone (cf. \cref{gmonotone}), it remains to see that it satisfies \eqref{eq:shiftmn}:
+
+%From this result and \cref{maxnormmn}, we immediately get that $\Gamma$ is a contraction in $\norm{\cdot}_{\mn}$:
+\begin{comment}
+\begin{theorem}\label{gmaxcontramn}
+The operator $\Gamma  \colon \Re^n\ra \Re^n$ is a contraction operator in $\norm{\cdot}_{\mn}$ with factor $\beta_{\psi}$.
+\end{theorem}
+\end{comment}
+%In a similar way, one can also show that $\hg$ is also a contraction:
+\begin{theorem}\label{hgmaxcontramn}
+The operator $\hg:\Re^n\to\Re^n$  is a contraction operator in $\norm{\cdot}_{\mn}$ with factor $\beta_{\psi}$.
+%$\hg$ is also a contraction map in the weighted $L_\infty$ norm.
+\end{theorem}
+\begin{proof}
+Follows from \cref{maxnormmn,gshiftmn}.
+\begin{comment}
+We already know that $\hg$ is monotone. That $\hg$ satisfies~\cref{eq:shiftmn}
+with $\beta = \beta_{\psi}$ follows similarly to the argument used in  \cref{tgshift}
+with modifications similar to those introduced in the proof of \cref{gshiftmn}.
+Then, \cref{gmaxcontramn} gives the desired result.
+\end{comment}
+\end{proof}
+In what follows we denote by $\hv$ the unique fixed point of $\hg$, i.e., $\hv = \hg \hv\,$. 
+
+
+\begin{lemma}\label{relation2}
+The vectors $\hv,\tj$ obey $\tj\geq\hv$.
+\end{lemma}
+\begin{proof}
+%The proof follows in a similar manner as the proof of \Cref{relation1}. To elaborate, 
+Let $ r_1,  r_2,\ldots, r_n$ be solutions to ALP in \eqref{alp} (with an additional constraint that the solution be restricted to $\N$) for $c=e_1, e_2,\ldots,e_n$, respectively,
+and define $V_0\in \Re^n$ by $V_0(i)=\underset{j=1,\ldots,n}{\min}(\Phi r_j)(i)$, $1\le i \le n$. The rest of the proof 
+follows in the same manner as the proof of \cref{relation1}.
+\end{proof}
+\begin{lemma}\label{srw}
+A vector
+$\hat{r} \in \Re^k$ is a solution to GRLP \eqref{grlp} iff it solves the following program:
+\begin{align}\label{grlpeqprog}
+\begin{split}
+\min_{r\in \N}\, &\norm{\Phi r-\hv}_{1,c}\,\mb
+\text{s.t.}\mb \, W^\top E \Phi r\geq W^\top H \Phi r.
+\end{split}
+\end{align}
+\end{lemma}
+\begin{proof}
+We know from \Cref{relation1} that $\hj = \Phi \hr \geq\hv$, and thus
+the solutions to \eqref{grlp} do not change if we add the constraint $\Phi r \ge \hv$.
+Now, under this constraint, minimizing $c^\top \Phi r$ is the same as minimizing 
+\begin{align*}
+\norm{\Phi r-\hv}_{1,c}=\sum_{i=1}^n c(i) |(\Phi r)(i)-\hv(i)|=c^\top \Phi r-c^\top \hv\,.
+\end{align*} 
+\end{proof}
+\begin{lemma}\label{srwalp}
+A vector
+$\tr \in \Re^k$ is a solution to ALP \eqref{alp} iff it solves the following program:
+\begin{align}\label{grlpeqprog}
+\begin{split}
+\min_{r\in \Re^k}\, &\norm{\Phi r-\hv}_{1,c}\,\mb
+\text{s.t.}\mb \, \Phi r\geq  T \Phi r.
+\end{split}
+\end{align}
+\end{lemma}
+\begin{proof}
+We know from \Cref{relation2} that $\tj = \Phi \tr \geq\hv$.
+The rest of the argument follows in the same manner as the proof for \cref{srw}.
+\end{proof}
+\begin{lemma}\label{cmt1mn}
+We have
+\begin{align}
+\norm{J^*-\hv}_{\mn}
+& \leq \frac{1}{{1-\beta_{\psi}}}\big(2\norm{J^*-\Phi r^*}_{\mn}
+\nn\\
+& {}\qquad \qquad+\norm{\Gamma J^*-\hg J^*}_{\mn}\big).
+\end{align}
+\end{lemma}
+\begin{proof}
+Recall that $\hg \hv=\hv$. By the triangle inequality,
+\begin{align*}
+\norm{J^*-\hv}_{\mn}
+& \leq \norm{J^*-\hg J^*}_{\mn}+\norm{\hg J^*-\hg \hv}_{\mn}\\
+&\leq \norm{J^*-\hg J^*}_{\mn}+\beta_\psi \norm{ J^*- \hv}_{\mn},
+\end{align*}
+and so by reordering and with another triangle inequality,
+\begin{align*}%\label{jhv}
+\norm{J^*-\hv}_{\mn} \nn
+&\le \frac{\norm{ J^*-\hg J^*}_{\mn}}{1-\beta_\psi}\nn\\
+&\le \frac{\norm{ J^*-\Gamma J^*}_{\mn}+\norm{\Gamma J^* - \hg J^*}_{\mn}}{1-\beta_\psi}\,.
+\end{align*}
+The proof follows by combining this and \cref{bestbndmn}.
+\end{proof}
+We now recall Lemma~$5$ from Section 4.2 of \cite{ALP}. 
+For this result, recall that $r_0 \in \Re^k$ is the vector such that $\psi = \Phi r_0$.
+\begin{lemma}\label{restate}
+%Let $\psi$ be a Lyapunov function that belongs to the column span of $\Phi$ ,
+For  $r \in \Re^k$ arbitrary, let $r'$ be
+\begin{align}
+r'= r+\norm{J^*-\Phi r}_{\mn} \left(\frac{1+\beta_{\psi}}{1-\beta_{\psi}}\right)\, r_0.
+\end{align}
+Then $r'$ is feasible for ALP in \eqref{alp}.
+\end{lemma}
+Recall that $\hv$ is the fixed point of $\hg$ and $\hj=\Phi \hr$ is the solution to GRLP
+\eqref{grlp}. 
+\begin{theorem}\label{mt2mn}
+We have
+\begin{align}
+\norm{\hj-\hv}_{1,c}&\leq \frac{c^\top \psi}{1-\beta_\psi}(4\norm{J^*-\Phi r^*}_{\mn}\nn
++\norm{\Gamma J^*-\hg J^*}_{\mn}).
+\end{align}
+\end{theorem}
+\begin{proof}
+Let $\gamma=\norm{J^*-\Phi r^*}_{\mn}$.
+Then, by choosing $r'$ as in \Cref{restate} we have
+\begin{align}
+\norm{\Phi r'-J^*}_{\mn}\nn
+&\leq \norm{\Phi r^*-J^*}_{\mn}+\norm{\Phi r'-\Phi r^*}_{\mn}\nn\\
+&=\gamma+\frac{1+\beta_\psi}{1-\beta_\psi}\gamma
+	=\frac{2}{1-\beta_\psi}\gamma.
+\label{part}
+\end{align}
+%We know that $\tr \in \N$ by \cref{grlpassmp}-\eqref{nassmp} and 
+Now, $r'$ is feasible for ALP in \eqref{alp} by \cref{restate}.
+Then from \cref{srwalp} it follows that
+%As a result, from \cref{srw} it follows that
+\begin{align}
+\norm{\hj-\hv}_{1,c}
+&\leq\norm{\Phi \tr-\hv}_{1,c}\leq\norm{\Phi r'-\hv}_{1,c}\nn\\
+&=\sum_{s\in S}c(s)\psi(s)\frac{|\Phi r'(s)-\hv(s)|}{\psi(s)}\nn\\
+&\leq c^\top \psi \norm{\Phi r'-\hv}_{\mn}\nn\\
+&\leq c^\top \psi (\norm{\Phi r'-J^*}_{\mn}+\norm{J^*-\hv}_{\mn}).\nn
+\end{align}
+The result follows from \cref{cmt1mn} and \eqref{part}.
+%\textbf{Main Result~$1$: Prediction Error bound in weighted $L_\infty$-norm}
+\end{proof}
+\begin{theorem}[Prediction error bound]
+\label{cmt2mn}
+%Let $\hj$, $\hv$, $r^*$ and $J^*$ be as in Theorem~\ref{mt2mn}, then
+It holds that
+\begin{align}\label{finalbndmn}
+\begin{split}
+\norm{J^*-\hj}_{1,c}
+&\leq\frac{c^\top\psi}{1-\beta_\psi}(6 \norm{J^*-\Phi r^*}_{\mn}\\
+&+2\norm{\Gamma J^*-\hg J^*}_{\mn}).
+\end{split}
+\end{align}
+\end{theorem}
+\begin{proof}
+We have
+\begin{align}
+\norm{J^*-\hj}_{1,c}\nn
+&\leq\norm{J^*-\hv}_{1,c}+\norm{\hv-\hj}_{1,c}\nn\\
+&\leq c^\top \psi \norm{J^*-\hv}_{\mn}+\norm{\hv-\hj}_{1,c}.\nn
+\end{align}
+The result now follows from \Cref{cmt1mn} and \Cref{mt2mn}.
+\end{proof}
+\fi
+\if0
+We now bound the performance of the greedy policy $\hu$.
+\begin{theorem}[Control Error Bound]
+\label{polthe}
+Let $\hu$ be the greedy policy with respect to the solution $\hj$ of GRLP and $J_{\hu}$ be its value function.
+% Let $r^*$ be as in Theorem~\ref{mt2mn}, then
+Then,
+\begin{align}\label{polthebnd}
+\norm{J^* - J_{\hu}}_{1,c}
+&\leq 2\left(\frac{c^\top \psi}{(1-\beta_{\psi})^2}\right)\, \big( 2\norm{J^*-\Phi r^*}_{\mn}
+\nn\\&
++\norm{\Gamma J^*-\hg J^*}_{\mn}+\norm{\hj-\hg\hj}_{\mn}\big).
+\end{align}
+\end{theorem}
+\begin{proof}
+By the triangle inequality,
+\begin{align*}
+\norm{J^*-J_{\hu}}_{1,c}&\leq \norm{J^*-\hj}_{1,c}+\norm{J_{\hu}-\hj}_{1,c}\,.
+\end{align*}
+Let us now bound the second term on the right-hand side.
+Since $\hu$ is greedy w.r.t. $\hj$, it holds that $T_{\hu} \hj = T \hj$.
+Also, $T_{\hu} J_{\hu} = J_{\hu}$.
+Hence, $J_{\hu} - \hj = T_{\hu} J_{\hu} - T_{\hu} \hj + T \hj - \hj
+=\alpha P_{\hu} (J_{\hu}- \hj) + T\hj - \hj$.
+Hence,
+\begin{align}\label{polderv}
+||J_{\hu}-\hj||_{1,c}\nn
+&=||(I-\alpha P_{\hu})^{-1}(T\hj-\hj)||_{1,c}\nn\\
+&\leq c^\top(I-\alpha P_{\hu})^{-1}|T\hj-\hj|\nn\\
+&\leq c^\top (I-\alpha P_{\hu})^{-1} \,\psi\, \norm{T\hj-\hj}_{\mn}\nn\\
+&\leq \frac{c^\top \psi}{1-\beta_{\psi}}\norm{T\hj-\hj}_{\mn}\nn\\
+%&\leq \frac{c^\top \psi}{1-\beta_{\psi}}\norm{T\hj-TJ^* +J^*- \hj}_{\mn}\nn\\
+&\leq \frac{c^\top \psi}{1-\beta_{\psi}}(\norm{T\hj-TJ^*}_{\mn} +\norm{J^*- \hj}_{\mn})\nn\\
+&\leq \frac{c^\top \psi}{1-\beta_{\psi}}(1+\beta_{\psi})\norm{J^*- \hj}_{\mn},
+\end{align}
+where in the second inequality, we use Jensen's inequality and $|T\hj - \hj|$ stands for the 
+vector whose $i$th component is $|(T\hj)(i) - \hj(i)|$. Further, the last inequality follows
+since $T$ is a $\norm{\cdot}_{\mn}$ contraction with factor $\beta_{\psi}$ as noted earlier.
+%componentwise  $(I-\alpha P_{\hu})^{-1}$ is a positive operator for $x=(x_1,\ldots,x_n)^\top\in \Re^n$, $|x|=(|x_1|,\ldots,|x_n|)^\top\in \Re^n$. 
+Hence,
+\begin{align}
+&\norm{J^*-J_{\hu}}_{1,c}\nn\\
+%&\leq \norm{J^*-\hj}_{1,c}+\norm{J_{\hu}-\hj}_{1,c}\nn\\
+&\leq c^\top \psi \norm{J^*-\hj}_{\mn}+c^\top \psi\frac{1+\beta_\psi}{1-\beta_\psi}\norm{J^*- \hj}_{\mn}\nn\\
+&=\frac{2c^\top \psi}{1-\beta_{\psi}}\norm{J^*- \hj}_{\mn}.
+\end{align}
+Now in a manner similar to \cref{cmt2mn} we have
+\begin{align}
+\norm{J^*- \hj}_{\mn}&\leq \norm{J^*- \hv}_{\mn}+\norm{\hv -\hj}_{\mn}\nn
+\end{align}
+The result now follows by substituting the bound on $\norm{J^*- \hv}_{\mn}$ from \cref{cmt1mn} and the fact that $\norm{\hv-\hj}_{\mn}\leq \frac{1}{1-\beta_{\psi}}\norm{\hj-\hg\hj}_{\mn}$.
+\end{proof}
+\begin{comment}
+\begin{note}
+By bounding $\etmn=\norm{\Gamma J^*-J^*+J^*-\hg J^*}_{\mn}\leq 2\norm{J^*-\Phi r^*}_{\mn}+\norm{J^*-\hg J^*}_{\mn}$
+(the inequality follows from \cref{bestbndmn}), 
+we can loosen the bounds in \cref{cmt2mn} and \cref{polthe} to
+\begin{align}
+\label{loose1}
+\norm{J^*-\hj}_{1,c}&\leq\frac{c^\top\psi}{1-\beta_\psi}(10 \norm{J^*-\Phi r^*}_{\mn}
+\nn\\&
++2\norm{J^*-\hg J^*}_{\mn}).\\
+\label{loose2}
+\norm{J^* - J_{\hu}}_{1,c}&\leq 2\left(\frac{c^\top \psi}{1-\beta_{\psi}}\right)^2 \,\big(10 \norm{J^*-\Phi r^*}_{\mn}
+\nn\\&
++2\norm{J^*-\hg J^*}_{\mn}\big).
+\end{align}
+Here the term $||J^*-\hg J^*||$ in \eqref{loose1} and \eqref{loose2} captures the error due to the use of both $\Phi$ and $W$. Though, \eqref{loose1} and \eqref{loose2} might be loser bounds than \eqref{finalbndmn} and \eqref{polthebnd} respectively, the advantage of this bound is that it captures the error due to function approximation as well as constraint reduction in a direct manner.
+\end{note}
+\end{comment}
+\begin{theorem}[Constraint Sampling]
+Let $s\in S$ be a state whose constraint is selected by $W$ (i.e., for some $i$ and all $(s',a)\in S\times A$,
+$W_{s'a,i}=\delta_{s=s'}$.
+Then
+$
+|\Gamma J^*(s)-\hg J^*(s)|<|\Gamma J^*(s)-J^*(s)|.
+$
+\end{theorem}
+
+\begin{proof}
+Let $r_{e_s,J^*}$ and ${r}'_{e_s,J^*}$ be solutions to the linear programs in \eqref{lubplp} and \eqref{alubplp} respectively for $c=e_s$ and $J=J^*$. It is easy to note that $r_{e_s,J^*}$ is feasible for the linear program in \eqref{alubplp} for $c=e_s$ and $J^*$, and hence it follows that $(\Phi r_{e_s,J^*})(s)\geq (\Phi {r}'_{e_s,J^*})(s)$. However, since the constraints with respect to state $s$ have been chosen we know that $(\Phi {r}'_{e_s,J^*})(s)\geq J^*(s)$. The proof follows from noting that $(\Gamma J^*)(s)=(\Phi r_{e_s,J^*})(s)$ and $\hg J^*(s)=(\Phi {r}_{e_s,J^*})(s)$.
+\end{proof}
+\fi
+
+
+%!TEX root =  autocontgrlp.tex
+\section{Numerical Illustration}
+In this section, we show via an example in the domain of controlled queues the consequences of \cref{conetheorm},
+which bounded the error when the constraints are chosen based on selecting a set of representative states
+% (the \emph{cone} condition) derived based on the geometric intuition 
+ (further preliminary experimental results have been reported in \cite{aaaipaper}).
+
+\textbf{Model:} We run the experiments in the context of a queuing model similar to the one in Section~5.2 of \cite{ALP}. We consider a single queue with arrivals and departures. The state of the system is the queue length with the state space given by $\S=\{0,\ldots,S-1\}$, where $S-1$ is the buffer size of the queue. The action set $\A=\{1,\ldots,A\}$ is related to the service rates. We let $s_t$ denote the state at time $t$. The state at time $t+1$ when action $a_t \in \A$ is chosen is given by $s_{t+1}= s_{t}+1$ with probability $p$, $s_{t+1}= s_{t}-1$ with probability $q(a_t)$ and $s_{t+1}= s_t$, with probability $(1-p-q(a_t))$. For states $s_t=0$ and $s_t=S-1$, the system dynamics is given by $s_{t+1}= s_{t}+1$ with probability $p$ when $s_t=0$ and $s_{t+1}=s_t-1$ with probability $q(a_t)$ when $s_t=S-1$. The service rates satisfy $0<q(1)\leq \ldots\leq q(A)<1$ with $q(A)>p$ so as to ensure `stabilizability' of the queue.
+The reward associated with  action $a \in \A$ and state $s\in \S$ is given by $g_a(s)=-(s/N+q(a)^3)$ (the idea here is to penalize higher queue lengths and higher service rates).
+\textbf{Parameter Settings:} We ran our experiments for $S=1000$, $A=4$ with $q(1)=0.2$, $q(2)=0.4$, $q(3)=0.6$, $q(4)=0.8$, $p=0.4$ and $\alpha=1-\frac{1}{S}$.
+The moderate size of $S=1000$ enabled us to compute the exact value of $J^*$ (the most expensive part of the computation). 
+Despite that the conic span condition cannot be met with them, as a way of testing the limits of the theory,
+we made use of polynomial features in $\Phi$ (i.e., $1,s,\ldots,s^{k-1}$) 
+since they are known to work reasonably well for this domain \cite{ALP}.
+We chose $k=4$. % (i.e., we used $1, s,s^2$ and $s^3$ as basis vectors).
+
+\textbf{Experimental Methodology:} We compare two different sampling strategies $(i)$ based on the \emph{cone} conditions, and $(ii)$ based on constraint sampling. The two strategies are compared via  \emph{lookahead} policies, wherein, the action at state $s$ is obtained by computing the approximate value functions of the next states. The details are as follows:
+\emph{Case (i)}: Except for the corner states i.e., $s=0$ and $s=999$, each state $0<s<S-1$ has two next states namely $s'=s-1$ and $s'=s+1$. We formulate two separate LRALPs (or just one LRALP for $s=0$ and $s=S-1$) for next states. When formulating the LRALP for state $s'$, we let $c=e_{s'}$ and choose the constraint corresponding to state $s'$ to ensure the cone condition to be met for LRALP. We choose $5$ more constraints corresponding to states $1,200,400,600,800,999$ (uniformly spaced across the state space) and compute $\hat{J}_{e_{s'}}$. The lookahead policy is formulated as
+$u_{LRA}(s)=\argmin_{a\in A} g_a(s)+\sum_{s'\in S}p_a(s,s')\hat{J}_{e_{s'}}(s')$.
+
+\emph{Case (ii)}: In a manner similar to \emph{Case (i)}, here too we formulate two separate LRALPs for next states. When formulating the LRALP for state $s'$, we first let $c_{s'}(s)=(1-\alpha)(\alpha)^{|s'-s|}$ and normalize $c$ and sample $m=6$ constraints randomly using $c$ and compute $\hat{J}_{c_s'}$. Since the optimal sampling distribution is unknown, we sample from $c$ which assigns higher weights to nearby states.
+The lookahead policy is formulated as 
+$u_{CS}(s)=\argmin_{a\in A} g_a(s)+\sum_{s'\in S}p_a(s,s')\hat{J}_{c_{s'}}(s')$.
+
+The results are shown in the figures below:
+\FloatBarrier
+\begin{figure}[htp]
+\begin{minipage}{0.5\textwidth}
+\resizebox{1.0\textwidth}{!}{
+\begin{tabular}{cc}
+\begin{tikzpicture}[scale=1,font=\Large,]
+\begin{axis}[]
+\addplot[smooth,very thick, mark=diamond, each nth point=100] plot file {../lralp_exp/V_LP};
+\addplot[dashed,very thick, mark=+, each nth point=100] plot file {../lralp_exp/V_pol_CS};
+\addplot[dotted,very thick,mark=square, each nth point=100] plot file {../lralp_exp/V_pol_cone};
+\addlegendentry{$J^*$};
+\addlegendentry{$J_{CS}$};
+\addlegendentry{$J_{LRA}$};
+
+\end{axis}
+\end{tikzpicture}
+
+&
+\begin{tikzpicture}[scale=1,font=\Large]
+\begin{axis}[]
+\addplot[very thick] plot file {../lralp_exp/policy};
+\addplot[dashed,very thick] plot file {../lralp_exp/policy_CS};
+\addplot[dotted,very thick] plot file {../lralp_exp/policy_cone};
+\addlegendentry{$u^*$};
+\addlegendentry{$u_{CS}$};
+\addlegendentry{$u_{LRA}$};
+
+\end{axis}
+\end{tikzpicture}
+
+\end{tabular}
+}
+\end{minipage}
+\end{figure}
+
+
+
+The right-hand-side figure shows the policies computed,
+while the left-hand-side figure shows their value functions. 
+Since constraint sampling (CS) produces randomized results,
+we repeated the simulations 10 times. 
+The results in all cases were quite similar except for one ``bad case'' for CS , hence we show the plot for a typical run.
+As can be seen from the figure, choosing the constraints to (approximately) satisfy the constraint of the theoretical results
+reliably produces better results: In fact, the value functions $J^*$ and $J_{LRA}$ are mostly on the top of each other.
+While these results are only meant for illustration,
+we expect that in larger domains it becomes even more important to select the constraints appropriately.
+However, the study of this is left for future work.
+
+%!TEX root =  autocontgrlp.tex
+\section{Conclusion}
+In this paper, we introduced and analyzed the linearly relaxed approximate linear program (LRALP) whose constraints were obtained as positive linear combination of the original constraints of the ALP. 
+The main novel contribution is a theoretical result which gives a geometrically interpretable bound on the performance loss due to relaxing the constraint sets. Possibilities for future work include extending the results to other forms of approximate linear programming in MDPs (e.g., \citep{SALP}), exploring the idea of approximating dual variables and
+designing algorithms that use the newly derived results to actively compute what constraints to select. \todoc{Other large scale LP}
+%By providing performance analysis for the GRLP, this paper justified linear function approximation of the dual variables of the ALP. 
+\begin{comment}
+The approximate linear program (ALP) is a widely employed method to handle MDPs with large number of states. However, an important shortcoming of the ALP is that it has large number of constraints, which is tackled in practice by sampling a tractable number of constraints from the ALP to formulate and solve a reduced linear program (RLP). The RLP has been found to work well empirically in various domains ranging from queues to Tetris games, and performance guarantees are for a specific RLP formulated under idealized assumptions. Alternatively, function approximation in the dual variables of the ALP has been another approach that has been employed in literature \cite{ALP-Bor,dolgov} to address the issue of large number of constraints. However there was no prior theoretical characterization for the function approximation of the dual variables.\par
+In this paper, we introduced a novel framework based on the generalized reduced linear program formulation. The constraints of the GRLP were obtained as positive linear combinations of the original ALP. We provided an error bound that relates the optimal value function to the solution of the GRLP. Our error bound contained two terms, one inherent to the ALP formulation and the other due to constraint reduction. We also made qualitative and quantitative observations about the nature of the error term that arose due to constraint reduction. 
+% Our analysis also revealed the fact that it is not always necessary to sample according to the stationary distribution of the optimal policy and, in fact, potentially several different constraint sampling/approximation strategies might work. 
+In particular, we also theoretically justified linear function approximation of the constraints. We also discussed the results and provided a numerical example in the domain of controlled queues. To conclude, we observe that by providing a novel theoretical framework to study constraint approximation, this paper provides important results that add to the theory of ALP.
+\end{comment}
+
