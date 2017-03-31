@@ -95,7 +95,14 @@ Or in the future. Btw, the situation is similar to statistical learning theory: 
 is only information theoretically possible. And competing with best choice
 in hindsight is often computationally intractable. Maybe cite information theory result for competing with the best policy in a class?}
 Here, within some restrictions (see below), the policy class can be chosen by the user.
-The more flexibility the user is given in this choice, the stronger a planning method is. \todoc{Add reference to the intro to Mausam's book. But where and what can be said?} An interesting source that is also devoted to this question is \cite{mausam} and provides AI techniques, which as of today lack theoretical guarantees.
+The more flexibility the user is given in this choice, the stronger a planning method is. 
+The problem of planning with limited resources is also one of the key problem in
+artificial intelligence (AI). 
+The book of  \cite{kolobov2012planning} gives a relatively fresh, algorithm-centered 
+summary of existing methods suitable for planning in MDPs. 
+AI research tend to focus on empirical results through the development of various benchmarks
+and little if any effort is devoted to the theoretical understanding of the quality-effort tradeoff exhibited by the
+that the various algorithms that are developed in this field.
 
 A popular approach along these lines, which goes back to \citet{SchSei85},
 relies on considering linear approximations to the \emph{optimal value function}:
@@ -129,7 +136,7 @@ SALP,
 fs,
 npalp,
 BhatFaMo12:SALPNP,
-abbasi}.
+abbbama14:dualLP}.
 The basic idea here is to combine a linear program whose solution is the optimal value function (and thus the number of optimization variables in it scales with the number of states) with a linear constraint that restricts the optimization variables to lie in the subspace spanned by the basis functions. As already noted by \citet{SchSei85}, the new LP can still be kept feasible by just adding one special basis function, while by substituting the ``value function candidates'' with their linear expansions, the number of optimization variables becomes the number of basis functions.
 As shown by \citet{ALP}, the solution to the resulting LP is within a constant factor of the best approximation to the optimal value function within the span of the chosen bases. However, since the number of constraints in the LP is still proportional to the number of states, it is not obvious whether a solution to the resulting LP can be found in time independent of the number of states (other computations can be done in time independent of the number of states, e.g., using sampling, at the price of a controlled increase of the error, e.g., Theorem 6 of \citep{petrik}).
 
@@ -161,16 +168,44 @@ While in a specific example it is shown that this error can be controlled, no ge
 Later works, such as that of
 \citet{SALP,BhatFaMo12:SALPNP},  repeat the analysis of \citet{CS}
 in combinations with other ideas. However, no existing work that we know of addresses the above weaknesses of the result of \citet{CS}.
-Another interesting approach is to consider the dual linear program which solves for the stationary distribution of the optimal policy. The idea in \cite{yasin} is to introduce linear function approximation in the dual LP, thereby approximating the stationary distributions using linear combination of basis functions. Under suitable assumptions it is \cite{yasin} shown that by solving the approximate dual LP results in a policy that competes with the best amongst the class of policies induced naturally by the linear parameterization. The authors in \cite{yasin} propose a stochastic gradient descent algorithm to compute the near-optimal solution of the associated Lagrangian with large Lagrangian coefficients. However, the result depends on ability to choose sampling distributions to control the variance due to the SGD.
-\todoc{Yasin's paper should be cited here as an interesting alternative approach. My notes about his paper:
-Approximation in the dual. No control for infeasibility of resulting ALP.
-Algorithm: Stochastic gradient descent for computing near-optimal solution on Langrangian with large Langrangian coefficients.
-Directly bounding loss of policy return as compared to best policy amongst those feasible.
-For infeasible LP, result is vacuous (the error blows up when demanding a better solution).
-No bound on best feasible policy's return.
-Strong requirements: Result depends on ability to choose a sampling distributions to control a variance term.
-"Few predecessor state-action pairs, which can be accessed, or sparse features", mixing.
-}
+
+Another interesting approach is to consider the dual linear program, 
+where the optimization variables are measures
+over the state-action space and the feasible set is the set of  
+discounted state-occupation (DSO) measures of all possible policies.
+By adding an extra linear constraint on the optimization variables, 
+we arrive at an ``approximate dual LP''. 
+Feasibility of the resulting LP can be ensured by adding 
+basis functions that represent DSO measures of some select policies.
+\citet{abbbama14:dualLP} considered this approach together 
+and proposed to use a randomized gradient method
+to minimize a penalized form of the linear objective to approximately enforce the constraints. 
+The algorithm computes the parameters of a measure over the state-action space, 
+from which a policy can be derived
+by normalization.
+The main result of \citeauthor{abbbama14:dualLP} is a bound on the performance loss of this policy relative to the
+performance of the best DSO measure in the feasible set of the approximate dual LP,%
+\footnote{The result shown is more general, allowing to use measures outside of the feasible set. However,
+for such measures the performance bound degrades very rapidly and hence the greater generality
+does not seem to add much to the result.}
+while iteration cost to obtain an $\epsilon$-competitive solution
+is $O(1/\epsilon^4)$ provided that a number of conditions hold.
+On the above complexity bound, the constants hidden are instance dependent, but do not depend on
+the number of states or actions.
+The conditions under which the result is proven are as follows:
+{\em (i)} the algorithm needs to be able to sample from distributions not too dissimilar
+to the idealized distributions $q_1$, $q_2$, where
+$q_1$ is a distribution over state-action pairs, $q_2$ is a distribution over states
+and, e.g., $q_1$ is defined by $q_1(s,a) = \norm{\phi(s,a)}/ \sum_{s',a'} \norm{\phi(s',a')}$ with $\phi(s,a) = (\phi_1(s,a),\dots,\phi_k(s,a))^\top$ and $\phi_1,\dots,\phi_k$ being the chosen basis functions specifying the linear constraints
+and $(s,a)$ is a state-action pair;
+{\em (ii)} the Markov chains underlying all policies in the MDP are uniformly fast mixing;
+{\em (iii)} for any state $s'\in \S$ and index $1\le i \le k$, 
+the expression $\sum_{s,a} \phi_i(s,a) p_a(s,s')$ can be evaluated in $O(1)$ time,
+where $p_a(s,s')$ is the probability of transitioning from state $s$ to $s'$ provided action $a$ is chosen.
+While the second assumption limits the scope of MDPs that the result can be applied to,
+the other two assumptions limit the choice of the basis functions. 
+Among other things, it is unclear how feasibility can be ensured while satisfying {\em (i)}.
+Nevertheless, \citeauthor{abbbama14:dualLP} demonstrate promising empirical results on a queueing problem.
 
 Our main contribution is a new suboptimality bound for the case when the constraint system is replaced with a smaller,
 linearly projected constraint system. We also propose a specific way of adding the extra constraint to keep the resulting LP bounded.
@@ -370,7 +405,9 @@ It is not hard to show then that $J^*$ is the smallest superharminoc function (i
 Now, let $\phi_1,\ldots,\phi_k : \S \to \Re$ be $k$ basis functions.
 \todoc{I think we should use $d$ to denote the number of basis functions. Or at least $n$. Low priority.}
 The \emph{Approximate Linear Program} (ALP) of \citet{SchSei85}
-is obtained by adding the linear constraints $J = \sum_{i=1}^k r_i \phi_i$ to the above linear program. Eliminating $J$ then gives $\min\{ \sum_i r_i c^\top \phi_i \,:\, \sum_i r_i \phi_i \ge g_a + \alpha \sum_i r_i P_a \phi_i, a\in \A, r = (r_i)\in \Re^k \}$.
+is obtained by adding the linear constraints $J = \sum_{i=1}^k r_i \phi_i$ to the above linear program. Eliminating $J$ gives \begin{align*}
+\min\{ \sum_i r_i c^\top \phi_i \,:\, \sum_i r_i \phi_i \ge g_a + \alpha \sum_i r_i P_a \phi_i, a\in \A, r = (r_i)\in \Re^k \}\,.
+\end{align*}
 As noted by \citet{SchSei85}, the linear program is feasible as long as $\one$, defined as the vector with all components being identically equal to one, is in the span of $\{\phi_1,\dots,\phi_k\}$.
 \emph{For the purpose of computations, it is assumed that the values $c^\top \phi_i$, $i=1,\dots, k$ and the values $(P_a \phi_i)(s)$ and $g_a(s)$ can be accessed in constant time.}
 This assumption can be relaxed to assuming that one can access $g_a(s)$ and $\phi_i(s)$ for any $(s,a)$ in constant time, as well as to that one can efficiently sample from $c$, from $P_a(s,\cdot)$ for any $(s,a)$ pair,
@@ -433,9 +470,19 @@ all the knowledge that makes the LP bounded.
 }
 
 Further insight into the choice of $W$ can be gained by
-considering the Lagrangians of the ALP and LRALP. To write both LP's in a similar form let us introduce $E = (I_{S\times S},\dots,I_{S\times S})^\top$, where $I_{S\times S}$ is the $S\times S$ identity matrix. Further, let $H:\Re^S \to \Re^{SA}$ be the operator defined by $(HJ)^\top = ( (T_1 J)^\top, \dots, (T_A J)^\top )$. Note that $H$ is a linear operator, which we call the \emph{linear Bellman operator}.
-Then, the ALP can be written as $\min\{ c^\top \Phi r \,|\, E \Phi r \ge H \Phi r \}$, while LRALP takes the form
-$\min\{ c^\top \Phi r \,|\, W^\top E \Phi r \ge W^\top H \Phi r \}$.
+considering the Lagrangians of the ALP and LRALP. To write both LP's in a similar form let us introduce $E = (I_{S\times S},\dots,I_{S\times S})^\top$, where $I_{S\times S}$ is the $S\times S$ identity matrix. Further, let $H:\Re^S \to \Re^{SA}$ be the operator defined by 
+\begin{align*}
+(HJ)^\top = ( (T_1 J)^\top, \dots, (T_A J)^\top )\,.
+\end{align*}
+Note that $H$, which we call the \emph{linear Bellman operator}, is a linear operator.
+Then, the ALP can be written as 
+\begin{align*}
+\min\{ c^\top \Phi r \,|\, E \Phi r \ge H \Phi r \}\,, \tag{ALP}
+\end{align*}
+while LRALP takes the form
+\begin{align*}
+\min\{ c^\top \Phi r \,|\, W^\top E \Phi r \ge W^\top H \Phi r \}\,. \tag{LRALP}
+\end{align*}
 Hence, their Lagrangians are $\mathcal{L}_{\alp}(r,\lambda) = c^\top \Phi r+\lambda^\top (H\Phi r-E\Phi r)$
 $\mathcal{L}_{\lralp}(r,q) = c^\top \Phi r+q^\top W^\top (H\Phi r-E\Phi r)$. Thus, we can view $W q$ as a ``linear approximation''
 to the dual variable $\lambda \in \Re_+^{SA}$.
@@ -463,6 +510,286 @@ the optimal Lagrange multipliers are the discounted number of visits to the ``st
 \end{align}
 where $P_{u^*}$ is the probability transition matrix under $u^*$ ($P_{u^*}(s,s') = P_{u^*(s)}(s,s')$, $s,s'\in S$) \cite{dolgov}. Even though we might not have the optimal policy $u^*$ in practice, the fact that $\lambda^*$ is a probability distribution and that it is a linear combination of $\{P_{u^*},P^2_{u^*},\ldots\}$ hints at the kind of features that might be useful for constructing the $W$ matrix.
 \fi
+%!TEX root =  autocontgrlp.tex
+\section{Main Results}
+%We denote an arbitrary solution to GRLP by $\hr$, and the approximate value function by $\hj=\Phi \hr$ and use $\hu$ to denote the greedy policy w.r.t. $\hj$.\\
+
+
+The purpose of this section is to present our main results.
+Let $\rlr$ be a solution to the LRALP given by \eqref{grlp}
+and let $\Jlr = \Phi \rlr$. When multiple solutions exist, we can choose any of them.
+For the result, we assume that the LRALP is not unbounded, and hence a solution exist. In fact, we will assume something much stronger. The discussion of why our assumptions are reasonable and how to ensure that they hold is postponed to after the presentation of our results.
+Our main results bounds the error $\norm{J^* - \Jlr}_{1,c}$.
+
+The bound is given in terms of the approximation error of $J^*$ with the basis functions $\Phi= (\phi_1,\dots,\phi_k)$, as well as the deviation between two functions, $\Jalpo,\Jlro: \S \to \Re$, which we define next. In particular,
+\begin{align*}
+\Jalpo(s) & = \min\{ r^\top\phi(s) \,|\, \Phi r \ge J^*, \, r\in \Re^k \}\,,\\
+\Jlro(s)    & = \min\{ r^\top\phi(s) \,|\, W^\top E \Phi r \ge W^\top E J^*, \, r\in \Re^k \}\,,
+\end{align*}
+where $s\in \S$. Recall that $E: \Re^S \to \Re^{SA}$ is defined so that $(E J)^\top = (J^\top, \dots, J^\top)$, i.e., $E$ stacks its argument $A$-fold. Hence, $W^\top E = \sum_a W_a^\top$. Our strong assumption is that $\Jlro$ is finite-valued. Note that $\Jalpo\ge J^*$ reflects the error due to using the basis functions $(\phi_j)_j$, and the magnitude of the deviation $\Jlro-\Jalpo$ reflects the error introduced due to the relaxed constraint system. 
+%The function $\Jalpo$ is an upper approximation to $J^*$
+
+Following \citet{ALP,CS}, we will quantify
+the magnitude of the error $\Jlro-\Jalpo$ and also that of the error
+of approximating $J^*$ with the subspace spanned by $\Phi$, 
+in terms of a \emph{weighted maximum norm}, 
+$\norm{J}_{\infty,\psi} = \max_{s\in \S} |J(s)|/\psi(s)$, 
+where $\psi: \S \to \Re_{++}$ is a positive-valued weighting function.%
+\footnote{As opposed to \citet{ALP} and others, our definition uses division and not multiplication with the weights.
+We choose this form for mathematical convenience:
+With this definition, nice duality results hold between weighted $1$-norms and weighted maximum norms.
+}
+As also stressed by \citeauthor{ALP}, 
+the appropriate choice of $\psi$ is crucial for MDPs with huge state-spaces:
+The problem is that if the range of values of $|J^*(s)|$ in different parts of the state space
+differ in orders of magnitude, we do not expect to be able to control the error of approximating $J^*$ uniformly over $\S$.
+By choosing the weighting function to reflect the magnitude of $J^*$, the weighted maximum norm is controlled
+as soon as the relative errors are and this latter goal may be much easier to achieve than controlling 
+absolute errors.
+
+Just like \citet{ALP}, we will also require that $\psi$ is a \emph{stochastic Lyapunov-function} for the MDP.  In particular, we require that the \emph{$\alpha$-discounted stability coefficient} \todoc{modulus probably would be better instead of coefficient.}
+\begin{align} \label{eq:betadef}
+\beta_\psi \doteq \alpha  \max_{a} \norm{P_a \psi}_{\infty,\psi}
+\end{align}
+is strictly less than one.
+This can be seen to imply that $H: (\Re^S,\norm{\cdot}_{\infty,\psi}) \to (\Re^{SA}, \norm{\cdot}_{\infty,\psi})$ is a contraction,
+where for $J = (J_1^\top,\dots,J_A^\top)^\top \in \Re^{SA}$ we let $\norm{J}_{\infty,\psi} = \max_a\norm{J_a}_{\infty,\psi}$.
+That $H$ is a contraction will play a crucial role in our results.
+Note that the condition $\beta_\psi<1$ is closely related to the condition that for any policy $u$, 
+$P_u \psi \le \psi$, which can be viewed as a stability condition on the MDP 
+and which appeared in a slightly altered form in studying the stability of MDPs with infinite 
+state spaces \citep[e.g.,][]{chemey99a}.
+Note also that one can always choose $\psi = \one$, which gives $\beta_\one = \alpha<1$. 
+With this, we are ready to state our main result:
+
+
+\if0
+\FloatBarrier
+%\input{cartoon}
+\begin{figure}
+\includegraphics[scale=0.7]{cartoon_grlp.pdf}
+\caption{
+%\normalsize
+The outer lightly shaded region corresponds to GRLP constraints and the inner dark shaded region corresponds to the original constraints. The main contribution of the paper is to bound $\norm{J^*-\hat{J}_c}$.}
+\label{cartoon}
+\end{figure}
+\Cref{cartoon} shows the solutions to the LP, ALP and GRLP respectively. The error in ALP solution has already been studied in \cite{ALP}. Our objective is to study the extra source of error due to constraint approximation.
+\fi
+
+%\subsection{Error Bounds}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{theorem}[Error Bound for LRALP]
+\label{cmt2}
+Assume that $c\in \Re_+^S$ is such that $1^\top c = 1$ and that $W \in \Re_+^{SA\times m}$ is nonnegative valued.
+Let $\psi\in \Re_+^S$ be in the column span of $\Phi$ and assume that the $\alpha$-discounted stability coefficient of $\psi$ is $\beta_\psi<1$. 
+Let $\eps = \inf_{r\in \Re^k}\norm{J^*-\Phi r}_{\infty,\psi}$ 
+be the error of approximation $J^*$ using the basis functions in $\Phi$.
+Then, \todoc{Oops, why was the coefficient below 3?? Where did results.tex come from??}
+\begin{align*}
+\norm{J^*-\hj}_{1,c} \leq 
+ \frac{2 c^\top \psi}{1-\beta_\psi} \left(
+	2.5 \eps
+     +\norm{\Jalpo-\Jlro}_{\infty,\psi}\right)\,.
+\end{align*}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\if0
+\item The control error is bound as\\
+$\norm{J^* - J_{\hu}}_{1,c}
+\leq 2\left(\frac{1}{(1-\alpha)^2}\right)\, \big( 2~\us{\min}{r\in \Re^k} \norm{J^*-\Phi r}_{\infty}
++\norm{\Gamma J^*-\hg J^*}_{\infty}+\norm{\hj-\hg\hj}_{\infty}\big)$.
+\end{enumerate}
+\fi
+\end{theorem}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Note that the result implicitly assumes that $\hj$ exists, because if $\hj$ does not exist then $\Jlro$ is necessarily unbounded, making the last error term infinite. To ensure that $\psi$ is in the span of $\Phi$, after choosing $\psi$, one can add $\psi$ as one of the basis functions. Alternatively, the bound can also be interpreted to hold for any $\psi$ in the span of $\Phi$ with $\beta_\psi<1$.
+
+As noted earlier, \citet{ALP} prove a similar error bound for $\Jalp$, the solution of the ALP.
+In particular, their Theorem 3 states that  under identical assumptions as in our result,
+$\norm{J^* - \Jalp}_{1,c} \le \frac{2 c^\top \psi \epsilon}{1-\beta_\psi}$ for $\epsilon$ defined as above
+ (the result we cited previously is a simplified form of this bound).
+The larger coefficient of $\epsilon$ is probably an artifact of our analysis. 
+Note that when $W$ does not reduce the constraints, 
+our bound is only a constant factor larger than this previous result.
+The extra term $\norm{\Jalpo-\Jlro}_{\infty,\psi}$ can be seen as the price paid for relaxing the constraints.
+
+From linear programming theory, it follows that primal boundedness is equivalent to dual feasibility. 
+Since the dual of $\min\{c^\top x\,:\, Ax \ge b \}$ is 
+$\max\{ y^\top b\,:\, y \ge 0, c = A^\top y\}$, we get
+that a necessary and sufficient condition for $\Jlro$ 
+to be finite-valued is that for any $s\in \S$, $\phi(s)$ lies in the conic span, 
+$\{ U \lambda\,:\, \lambda\in \Re_+^{SA}\}$, of (the columns) of $U = \Phi^\top E^\top W$.
+%(Note that the boundedness of LRALP only requires that $\Phi^\top c$ lies in the conic span of $U$.)
+When $W$ is such that its constituents $W_1,\dots,W_A$ are all identical, 
+the conic span of $U$ is equal to the conic span of $\Phi^\top W_1$. 
+It is particularly instructive 
+to consider the case when the common matrix $W_a = (w_{1,a},\dots,w_{m,a})$ ``selects'' the $m$ states,
+i.e., when $\{w_{1,a},\dots,w_{m,a}\}= \{ e_{s}\,:\, s\in \S_0 \}$ for some $\S_0\subset \S$, $|\S_0|\le m$,
+where $e_s\in \{0,1\}^\S$ are the $s\in \S$ vectors in the standard Euclidean basis.
+In this case, the condition that $\phi(s)$ lies in the conic span of $U$ 
+is equivalent to that $\phi(s)$ lies in the conic span of $\phi(\S_0) \doteq \{\phi(s')\,:\, s'\in \S_0\}$. 
+Thus, to ensure boundedness of $\Jlro$, 
+the chosen states should be selected to ``conicly cover'' all the vectors in $\phi(\S)\subset \Re^k$.%
+\footnote{The same implies that, under the same condition on $W$, boundedness of the LRALP 
+holds if and only if $\sum_s c(s) \phi(s)$ is in the conic span of $\phi(\S_0)$. Note that this is easy to fulfill
+if the support of $c$ has a small cardinality by add all states in the support of $c$ to $\S_0$.
+}
+
+The next theorem shows that magnitudes of the coefficients used in the conic cover control the size of 
+$\norm{\Jalpo-\Jlro}_{\infty,\psi}$. 
+For the theorem we let $\Lambda\in \Re_+^{\S\times \S_0}$ be the matrix of conic coefficients: 
+For any $s\in \S$, $\phi(s) = \sum_{s'\in \S_0} \Lambda(s,s') \phi(s')$. After the theorem we give constructions 
+for creating conic covers.
+\begin{theorem}
+\label{conetheorm}
+Assume that $W_1 = \dots = W_A$, $\{w_{1,a},\dots,w_{m,a}\} = \{ e_s\,:\, s\in \S_0 \}$ 
+and that $\phi(\S)$ lies in the conic span of $\phi(\S_0)$ with conic coefficients given by $\Lambda$.
+Let $\epsilon = \inf_{r}\norm{ J^* -  \Phi r }_{\infty,\psi}$.
+Then, 
+\begin{align*}
+\norm{\Jalpo-\Jlro}_{\infty,\psi}
+\le 
+\norm{\Jalpo-J^*}_{\infty,\psi} + (1+ \norm{\Lambda \psi}_{\psi,\infty}) \epsilon\,.
+\end{align*}
+\end{theorem}
+\begin{proof}
+Let $r^*$ be such that $\norm{J^* - \Phi r^*}_{\infty,\psi} = \epsilon$ (this exists by continuity) and let 
+$\delta = J^* - \Phi r^*$.
+Pick any $s\in \S$ and let $r_s = \argmin\{ r^\top \phi(s) \,:\, W^\top E \Phi r \ge W^\top E J^*,\, r\in \Re^k \}$ 
+so that $\Jlro(s) = r_s^\top \phi(s)$.
+Note that by assumption, for any $s'\in \S_0$, $\Jlro(s') = r_s^\top \phi(s') \ge J^*(s')$.
+Now, notice that by definition, $\Jlro \le \Jalpo$ (the LP defining $\Jlro$ is the relaxation of the LP defining $\Jalpo$).
+Hence,
+\begin{align*}
+0\le \Jalpo(s) - \Jlro(s) = \Jalpo(s) - J^*(s) + J^*(s) - \Jlro(s)
+\end{align*}
+and $\Jlro(s) = r_s^\top \phi(s) = r_s^\top \sum_{s'\in \S_0} \Lambda(s,s') \phi(s') = \sum_{s'\in \S_0} \Lambda(s,s') \Jlro(s')
+\ge \sum_{s'\in \S_0} \Lambda(s,s') J^*(s')$.
+Combining this with the previous inequality we get
+\begin{align*}
+0
+%\le
+&\le 
+ \frac{\Jalpo(s) - \Jlro(s)}{\psi(s)}
+ \le
+%&\le
+\frac{\Jalpo(s)-J^*(s)}{\psi(s)} + \frac{J^*(s) - \sum_{s'\in \S_0} \Lambda(s,s') J^*(s')}{\psi(s)}
+\,.
+\end{align*}
+Plugging in $J^*(s) = \phi(s)^\top r^*+\delta(s)$, using again that $\phi(s) = \sum_{s'\in \S_0} \Lambda(s,s') \phi(s')$,
+and also using the triangle inequality after taking absolute values, we get
+\begin{align*}
+%\MoveEqLeft
+ \frac{|J^*(s) - \sum_{s'\in \S_0} \Lambda(s,s') J^*(s')|}{\psi(s)} 
+& \le
+  \frac{|\delta(s)|}{\psi(s)} + \frac{\sum_{s'\in \S_0} \Lambda(s,s') |\delta(s')|}{\psi(s)} \\
+& \le
+  \frac{|\delta(s)|}{\psi(s)} + \frac{1}{\psi(s)} \, \sum_{s'\in \S_0} \Lambda(s,s') \psi(s') \frac{|\delta(s')|}{\psi(s')} \\
+& \le
+  \frac{|\delta(s)|}{\psi(s)} + \norm{\delta}_{\infty,\psi} \frac{\sum_{s'\in \S_0} \Lambda(s,s') \psi(s')}{\psi(s)} \, .
+\end{align*}
+Combining this with the previous display and noting that $\norm{\delta}_{\infty,\psi} = \epsilon$ finishes the proof.
+\if0
+Putting things together, we get 
+\begin{align*}
+\norm{\Jalpo - \Jlro}_{\infty,\psi}
+\le
+\norm{\Jalpo(s)-J^*(s)}_{\infty,\psi}
++ 
+\norm{\delta}_{\infty,\psi} (1+ \norm{\Lambda \psi}_{\infty,\psi})\,,
+\end{align*}
+finishing the proof.
+\fi
+\end{proof}
+
+Given $\phi:\S \to \Re^k$, what is the minimum cardinality set $\S_0$ that 
+conicly covers $\phi(\S)$ and how to find such a set? Further, how to keep the magnitude of $\norm{\Lambda \psi}_{\infty,\psi}$ small? To control this latter quantity it seems essential to make sure $\S_0$ contains states with high $\psi$-values. 
+However, if one is content with a bound that depends on $\norm{\psi}_{\infty}$, one can bound 
+$\norm{\Lambda \psi}_{\infty,\psi}$ by $\norm{\psi}_{\infty} \zeta$ where $\zeta = \max_s \sum_{s'\in \S_0} \Lambda(s,s')$,
+hence, the second term in the previous bound will be bounded by $(1+\norm{\psi}_{\infty} \zeta) \eps$.
+
+Let us now return to the problem of finding conic covers. 
+We will proceed by considering some illustrative examples. 
+As a start, consider the case when the basis functions are binary valued.
+In this case, it is sufficient and necessary to choose one state for each binary vector 
+that appears in $\phi(\S)\subset \{0,1\}^k$.
+This gives that $m_0 \doteq |\S_0|\le 2^k$ representative states will be sufficient \emph{regardless of the cardinality of $\S$}.
+Further, in this case $\zeta = 1$.
+For moderate to large $k$ (e.g., $k\gg 20$), it will quickly become infeasible to keep $2^k$ constraints.
+In this case we may need to restrict what features are considered to guarantee the conic cover condition.
+Letting $A_i = \{s\in \S\,:\, \phi_i(s)=1 \}$, if for a many pairs $i\ne j$, $A_i$ and $A_j$ do not overlap 
+then $N = |\phi(\S)|$ can be much smaller than $2^k$. 
+For example, in the commonly used state aggregation procedures 
+$A_i \cap A_j = \emptyset$ for any $i\ne j$, giving $N=k$. 
+%In this case $N=k$: It suffices to choose one representative state from each of the $A_i$ sets and add them to the constraints. 
+In the more interesting case of 
+hierarchical aggregation (when the sets $\{A_i\}$ form a nested hierarchical partitioning of $\S$), 
+we have $m_0 \le D \cdot k$ where $D$ is the depth of the hierarchy.
+
+Another favourable example is the case of separable bases.
+In this case, the states are assumed to be factored 
+and the basis functions depend only on a few factors.
+Let us consider a simple illustration.
+By abusing notation (redefining $\S$), let $\S = \S_1 \times \S_2$, 
+let there be $k=2$ basis functions and assume that $\phi_i(s) = h_i(s)$ for some $h_i:\S_i \to \Re$, $i=1,2$.
+Assume further that $0\in h_i(\S_i)$ for both $i$ and specifically let $s_{i0}$ be such that $h_i(s_{i0})=0$.
+In this case it is not hard to verify that if $\S_{i0}$ is such that $h_i(\S_i)$ is in the conic span of $h_i(\S_{i0})$ then
+$\phi(\S)$ is also in the conic span of $\S_0 \doteq \S_1 \times \{ s_{20} \} \cup \{ s_{10} \} \times \S_2$.
+The point is that $|\S_0| \le |\S_1| + |\S_2|$, which is a tolerable increase of growth.
+This example is not hard to generalize to more general, ANOVA-like basis expansions. The moral
+is that as long as their limited order of interaction (which is usually necessary for information theoretic reasons as well),
+the number of constraints may grow moderately with the number of factors (dimensionality) of the state space.
+
+In some cases, finding a conic cover with a small cardinality is not possible. 
+This can already happen in simple examples such as when $\S = \{1,\dots,S\}$ (as before) and
+$\phi( s ) = (1,s,s^2)^\top$. In this case, the only choice is $\S_0 = \S$. 
+In examples similar to this one one possibility is to quantize the range of $\phi$, which may  loose
+little on approximation quality, while it creates the opportunity 
+to construct a small cardinality conic cover.
+
+Note that the bound of \cite{CS} and our main result can be seen as largely complementary. 
+Recall that \citeauthor{CS} consider adding an extra constraint $r\in \N$, while they propose to select all $A$ constraints
+from the ALP corresponding to $m$ states chosen at random from some distribution $\mu$. 
+Then, with high probability,
+they show that, provided that $\ralp \in \N$,
+ the extra price paid for relaxing the constraints of the ALP is $O( \rho \epsilon_{\N} k/m)$,
+ where $\rho = \max_{s} \frac{\mu^*(s)}{\mu(s)}$, $\mu^* = (1-\alpha)c^\top (I-\alpha P_{u^*})^{-1}$, $u^*$ is an optimal policy,
+and $\epsilon_{\N} = \sup_{r\in \N} \norm{J^*-\Phi r}_{\infty,\psi}$.%
+\footnote{The paper presents the results for $\mu = \mu^*$ giving $\rho=1$, but the analysis easily extends to the general case.}
+The bound is nontrivial when $m\ge \rho \epsilon_{\N} k$.
+In general, it may be hard to control $\rho$, or even $\epsilon_{\N}$ while ensuring that $\ralp \in \N$.
+
+
+
+\if0
+\textbf{On Prediction Error:} The first factor in the right hand side of the prediction error in \Cref{cmt2} is related to the best possible approximation that can be achieved with the chosen feature matrix $\Phi$. This term is an carry over of the upper bound in ALP formulation as shown in \Cref{alpvanilla}. The second factor in the right hand side of the prediction error is related to constraint approximation and is completely defined in terms of $\Phi$, $W$ and $T$, and does not require knowledge of stationary distribution of the optimal policy.\par
+\textbf{On Control Error:} The first two terms are quite similar to those in the bound for prediction error. The third term occurs due to the fact that $\Phi \geq T\Phi r$ that holds in the case of ALP does not hold in the case of GRLP.\par
+\begin{comment}
+\begin{theorem}[Control Error Bound in $\norm{\cdot}_{\infty}$]
+\label{polthe}
+Let $\hu$ be the greedy policy with respect to the solution $\hj$ of GRLP and $J_{\hu}$ be its value function.
+% Let $r^*$ be as in Theorem~\ref{mt2mn}, then
+Then,
+\begin{align}\label{polthebnd}
+\norm{J^* - J_{\hu}}_{1,c}
+&\leq 2\left(\frac{c^\top \psi}{(1-\beta_{\psi})^2}\right)\, \big( 2\norm{J^*-\Phi r^*}_{\infty}
+\nn\\&
++norm{\Gamma J^*-\hg J^*}_{\infty}+\norm{\hj-\hg\hj}_{\infty}\big).
+\end{align}
+\end{theorem}
+\end{comment}
+\begin{corollary}[Constraint Sampling]\label{st}
+$W\in \{0,1\}^{nd\times m}$Let $s\in S$ be a state whose constraint is selected by $W$ (i.e., for some $i$ and all $(s',a)\in S\times A$,
+$W_{s'a,i}=\delta_{s=s'}$.
+Then
+\begin{align*}%\label{sampexp}
+|\Gamma J^*(s)-\hg J^*(s)|<|\Gamma J^*(s)-J^*(s)|.
+\end{align*}
+\end{corollary}
+It is important to note that \Cref{rlpt} holds only in high probability and is valid only under idealized assumption of knowing the optimal policy $u^*$, while \Cref{cmt2} does not have these limitations.
+In addition, the error $|\Gamma J^*(s) -\hg J^*(s)|$ (in \Cref{st} ) due to constraint approximation is less than the original projection error $|\Gamma J^*(s)-J^*(s)|$ due to function approximation. This means that for RLP to perform well it is important to retain the constraints corresponding to those states for which the linear function approximation via $\Phi$ is known to perform well.
+\fi
+
+
 %!TEX root =  autocontgrlp.tex
 \section{Proof of \cref{cmt2}}\label{sec:improv}
 In this section we present the proof of the main result, \cref{cmt2}.
@@ -504,10 +831,11 @@ The following are equivalent:
 \label{lem:item:iq}
 \end{enumerate}
 \end{lemma}
-%The proof, which essentially copies Lemma 3.1 of \cite{Kall17}, is given for completeness:
+The proof, which essentially copies that of Lemma 3.1 of \cite{Kall17}, is given for completeness:
 \begin{proof}
-The proof is  trivial modification of the proof of Lemma 3.1 of \cite{Kall17} and is thus left as an exercise.
 \if0
+The proof is  trivial modification of the proof of Lemma 3.1 of \cite{Kall17} and is thus left as an exercise.
+\fi
 %Note first that for any $\eps\ge 0$, $-\eps \psi \le J - J' \le \eps \psi$ implies that $\norm{J-J'}_{\mn} \le \eps$.
 Introduce $\cdot$ to denote elementwise products: Thus, $(\psi \cdot J)(s) = \psi(s) J(s)$.
 We also let $\psi^{-1}(s) = 1/\psi(s)$ and we will use the shorthand $\norm{\cdot} = \norm{\cdot}_{\mn}$.
@@ -523,12 +851,12 @@ Now, let $\eps = \norm{J-J'}$. Then, $J \le J'+ \eps \psi$ and $J' \le J+\eps \p
 By monotonicity and the assumed property of $B$ (using $t=\eps\ge 0$),
 $-\beta \eps \psi \le BJ - BJ' \le \beta \eps \psi$, which implies
 that $\norm{BJ - BJ'} \le \beta$.
-\fi
+%\fi
 \end{proof}
 \begin{corollary}
 \label{maxnormmn}
 \label{cor:maxnormmn}
-If $B$ is monotone and there exists some $\beta\in [0,1)$ such that for any $J\in \Re^S$ and $t>0$,
+If $B$ is monotone and there exists some $\beta\in [0,1)$ such that for any $J\in \Re^S$ and any $t>0$,
 \begin{align}
 \label{eq:shiftmn}
 B( J + t \psi) \le B J + \beta t \psi
@@ -1090,8 +1418,9 @@ which bounded the error when the constraints are chosen based on selecting a set
 % (the \emph{cone} condition) derived based on the geometric intuition
 (further preliminary experimental results have been reported in \cite{aaaipaper}).
 
-\textbf{Model:} We run the experiments in the context of a queuing model similar to the one in Section~5.2 of \cite{ALP}. We consider a single queue with arrivals and departures. The state of the system is the queue length with the state space given by $\S=\{0,\ldots,S-1\}$, where $S-1$ is the buffer size of the queue. The action set $\A=\{1,\ldots,A\}$ is related to the service rates. We let $s_t$ denote the state at time $t$. The state at time $t+1$ when action $a_t \in \A$ is chosen is given by $s_{t+1}= s_{t}+1$ with probability $p$, $s_{t+1}= s_{t}-1$ with probability $q(a_t)$ and $s_{t+1}= s_t$, with probability $(1-p-q(a_t))$. For states $s_t=0$ and $s_t=S-1$, the system dynamics is given by $s_{t+1}= s_{t}+1$ with probability $p$ when $s_t=0$ and $s_{t+1}=s_t-1$ with probability $q(a_t)$ when $s_t=S-1$. The service rates satisfy $0<q(1)\leq \ldots\leq q(A)<1$ with $q(A)>p$ so as to ensure `stabilizability' of the queue.
+\textbf{Model:} We ran the experiments in the context of a queuing model similar to the one in Section~5.2 of \cite{ALP}. We consider a single queue with arrivals and departures. The state of the system is the queue length with the state space given by $\S=\{0,\ldots,S-1\}$, where $S-1$ is the buffer size of the queue. The action set $\A=\{1,\ldots,A\}$ is related to the service rates. We let $s_t$ denote the state at time $t$. The state at time $t+1$ when action $a_t \in \A$ is chosen is given by $s_{t+1}= s_{t}+1$ with probability $p$, $s_{t+1}= s_{t}-1$ with probability $q(a_t)$ and $s_{t+1}= s_t$, with probability $(1-p-q(a_t))$. For states $s_t=0$ and $s_t=S-1$, the system dynamics is given by $s_{t+1}= s_{t}+1$ with probability $p$ when $s_t=0$ and $s_{t+1}=s_t-1$ with probability $q(a_t)$ when $s_t=S-1$. The service rates satisfy $0<q(1)\leq \ldots\leq q(A)<1$ with $q(A)>p$ so as to ensure `stabilizability' of the queue.
 The reward associated with  action $a \in \A$ and state $s\in \S$ is given by $g_a(s)=-(s/N+q(a)^3)$ (the idea here is to penalize higher queue lengths and higher service rates).
+
 \textbf{Parameter Settings:} We ran our experiments for $S=1000$, $A=4$ with $q(1)=0.2$, $q(2)=0.4$, $q(3)=0.6$, $q(4)=0.8$, $p=0.4$ and $\alpha=1-\frac{1}{S}$.
 The moderate size of $S=1000$ enabled us to compute the exact value of $J^*$ (the most expensive part of the computation).
 Despite that the conic span condition cannot be met with them, as a way of testing the limits of the theory,
@@ -1103,21 +1432,22 @@ We chose $k=4$. % (i.e., we used $1, s,s^2$ and $s^3$ as basis vectors).
 \emph{Case (i)}: Except for the corner states i.e., $s=0$ and $s=999$, each state $0<s<S-1$ has two next states namely $s'=s-1$ and $s'=s+1$. We formulate two separate LRALPs (or just one LRALP for $s=0$ and $s=S-1$) for next states. When formulating the LRALP for state $s'$, we let $c=e_{s'}$ and choose the constraint corresponding to state $s'$ to ensure the cone condition to be met for LRALP. We choose $5$ more constraints corresponding to states $1,200,400,600,800,999$ (uniformly spaced across the state space) and compute $\hat{J}_{e_{s'}}$. The lookahead policy is formulated as
 $u_{LRA}(s)=\argmin_{a\in A} g_a(s)+\sum_{s'\in S}p_a(s,s')\hat{J}_{e_{s'}}(s')$.
 
-\emph{Case (ii)}: In a manner similar to \emph{Case (i)}, here too we formulate two separate LRALPs for next states. When formulating the LRALP for state $s'$, we first let $c_{s'}(s)=(1-\alpha)(\alpha)^{|s'-s|}$ and normalize $c$ and sample $m=6$ constraints randomly using $c$ and compute $\hat{J}_{c_s'}$. Since the optimal sampling distribution is unknown, we sample from $c$ which assigns higher weights to nearby states.
+\emph{Case (ii)}: In a manner similar to \emph{Case (i)}, here too we formulate two separate LRALPs for next states. When formulating the LRALP for state $s'$, we first let $c_{s'}(s)=(1-\alpha)(\alpha)^{|s'-s|}$ \todoc{I think it would be better to use the sampling distribution that \citet{CS} proposed, even though if in practice this is not available.} and normalize $c$ and sample $m=6$ constraints randomly using $c$ and compute $\hat{J}_{c_s'}$. Since the optimal sampling distribution is unknown, we sample from $c$ which assigns higher weights to nearby states.
 The lookahead policy is formulated as
 $u_{CS}(s)=\argmin_{a\in A} g_a(s)+\sum_{s'\in S}p_a(s,s')\hat{J}_{c_{s'}}(s')$.
 
-The results are shown in the figures below:
+The results are shown in \cref{fig:results}.
 \FloatBarrier
 \begin{figure}[htp]
-\begin{minipage}{0.5\textwidth}
+\begin{center}
+\begin{minipage}{0.7\textwidth}
 \resizebox{1.0\textwidth}{!}{
 \begin{tabular}{cc}
 \begin{tikzpicture}[scale=1,font=\Large,]
 \begin{axis}[]
-\addplot[smooth,very thick, mark=diamond, each nth point=100] plot file {./V_LP};
-\addplot[dashed,very thick, mark=+, each nth point=100] plot file {./V_pol_CS};
-\addplot[dotted,very thick,mark=square, each nth point=100] plot file {./V_pol_cone};
+\addplot[smooth,very thick, mark=diamond, each nth point=100] plot file {./lralp_exp/V_LP};
+\addplot[dashed,very thick, mark=+, each nth point=100] plot file {./lralp_exp/V_pol_CS};
+\addplot[dotted,very thick,mark=square, each nth point=100] plot file {./lralp_exp/V_pol_cone};
 \addlegendentry{$J^*$};
 \addlegendentry{$J_{CS}$};
 \addlegendentry{$J_{LRA}$};
@@ -1128,9 +1458,9 @@ The results are shown in the figures below:
 &
 \begin{tikzpicture}[scale=1,font=\Large]
 \begin{axis}[]
-\addplot[very thick] plot file {./policy};
-\addplot[dashed,very thick] plot file {./policy_CS};
-\addplot[dotted,very thick] plot file {./policy_cone};
+\addplot[very thick] plot file {./lralp_exp/policy};
+\addplot[dashed,very thick] plot file {./lralp_exp/policy_CS};
+\addplot[dotted,very thick] plot file {./lralp_exp/policy_cone};
 \addlegendentry{$u^*$};
 \addlegendentry{$u_{CS}$};
 \addlegendentry{$u_{LRA}$};
@@ -1141,6 +1471,16 @@ The results are shown in the figures below:
 \end{tabular}
 }
 \end{minipage}
+\end{center}
+\caption{Results for a single-queue with polynomial features. 
+On both figures the $x$ axis represents the state space: the length of the queue.
+The left-hand-side figure shows the value functions
+of the various policies computed, alongside with the optimal value function (higher values are better), while
+the right-hand side subfigure shows the underlying policies.
+``CS'' stands for constraint sampling, while LRA stands for choosing the constraints based on 
+geometric principles proposed in the paper. For further details, see the text.
+}
+\label{fig:results}
 \end{figure}
 
 
@@ -1149,11 +1489,10 @@ The right-hand-side figure shows the policies computed,
 while the left-hand-side figure shows their value functions.
 Since constraint sampling (CS) produces randomized results,
 we repeated the simulations 10 times.
-The results in all cases were quite similar except for one ``bad case'' for CS , hence we show the plot for a typical run.
+The results in all cases were quite similar except for one ``bad case'' for CS, hence we show the plot for a typical run.
 As can be seen from the figure, choosing the constraints to (approximately) satisfy the constraint of the theoretical results
 reliably produces better results: In fact, the value functions $J^*$ and $J_{LRA}$ are mostly on the top of each other.
-While these results are only meant for illustration,
-we expect that in larger domains it becomes even more important to select the constraints appropriately.
+We expect that in larger domains it becomes even more important to select the constraints appropriately.
 However, the study of this is left for future work.
 
 %!TEX root =  autocontgrlp.tex
