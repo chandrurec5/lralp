@@ -1115,9 +1115,9 @@ The results are shown in the figures below:
 \begin{tabular}{cc}
 \begin{tikzpicture}[scale=1,font=\Large,]
 \begin{axis}[]
-\addplot[smooth,very thick, mark=diamond, each nth point=100] plot file {../lralp_exp/V_LP};
-\addplot[dashed,very thick, mark=+, each nth point=100] plot file {../lralp_exp/V_pol_CS};
-\addplot[dotted,very thick,mark=square, each nth point=100] plot file {../lralp_exp/V_pol_cone};
+\addplot[smooth,very thick, mark=diamond, each nth point=100] plot file {./lralp_exp/V_LP};
+\addplot[dashed,very thick, mark=+, each nth point=100] plot file {./lralp_exp/V_pol_CS};
+\addplot[dotted,very thick,mark=square, each nth point=100] plot file {./lralp_exp/V_pol_cone};
 \addlegendentry{$J^*$};
 \addlegendentry{$J_{CS}$};
 \addlegendentry{$J_{LRA}$};
@@ -1128,9 +1128,9 @@ The results are shown in the figures below:
 &
 \begin{tikzpicture}[scale=1,font=\Large]
 \begin{axis}[]
-\addplot[very thick] plot file {../lralp_exp/policy};
-\addplot[dashed,very thick] plot file {../lralp_exp/policy_CS};
-\addplot[dotted,very thick] plot file {../lralp_exp/policy_cone};
+\addplot[very thick] plot file {./lralp_exp/policy};
+\addplot[dashed,very thick] plot file {./lralp_exp/policy_CS};
+\addplot[dotted,very thick] plot file {./lralp_exp/policy_cone};
 \addlegendentry{$u^*$};
 \addlegendentry{$u_{CS}$};
 \addlegendentry{$u_{LRA}$};
