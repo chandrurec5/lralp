@@ -1462,7 +1462,7 @@ The results are shown in \cref{fig:results}.
 \begin{axis}[]
 \addplot[very thick] plot file {./lralp_exp/policy};
 \addplot[dashed,very thick] plot file {./lralp_exp/policy_CS};
-\addplot[dashed,very thick] plot file {./lralp_exp/policy_CS_ideal};
+\addplot[dashed, very thick, mark=+, each nth point=10] plot file {./lralp_exp/policy_CS_ideal};
 \addplot[dotted,very thick] plot file {./lralp_exp/policy_cone};
 \addlegendentry{$u^*$};
 \addlegendentry{$u_{CS}$};
