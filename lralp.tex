@@ -1436,14 +1436,13 @@ $u_{LRA}(s)=\argmin_{a\in A} g_a(s)+\sum_{s'\in S}p_a(s,s')\hat{J}_{e_{s'}}(s')$
 The lookahead policy is formulated as
 $u_{CS}(s)=\argmin_{a\in A} g_a(s)+\sum_{s'\in S}p_a(s,s')\hat{J}_{c_{s'}}(s')$.
 
-The results are shown in \cref{fig:results}.
 \FloatBarrier
 \begin{figure}[htp]
 \begin{center}
-\begin{minipage}{0.7\textwidth}
+\begin{minipage}{0.9\textwidth}
 \resizebox{1.0\textwidth}{!}{
 \begin{tabular}{cc}
-\begin{tikzpicture}[scale=1,font=\Large,]
+\begin{tikzpicture}[scale=1,font=\normalsize,]
 \begin{axis}[]
 \addplot[smooth,very thick, mark=diamond, each nth point=100] plot file {./lralp_exp/V_LP};
 \addplot[dashed,very thick, mark=+, each nth point=100] plot file {./lralp_exp/V_pol_CS};
@@ -1458,7 +1457,7 @@ The results are shown in \cref{fig:results}.
 \end{tikzpicture}
 
 &
-\begin{tikzpicture}[scale=1,font=\Large]
+\begin{tikzpicture}[scale=1,font=\normalsize]
 \begin{axis}[]
 \addplot[very thick] plot file {./lralp_exp/policy};
 \addplot[dashed,very thick] plot file {./lralp_exp/policy_CS};
@@ -1486,9 +1485,7 @@ geometric principles proposed in the paper. For further details, see the text.
 }
 \label{fig:results}
 \end{figure}
-
-
-
+The results are shown in \cref{fig:results}.
 The right-hand-side figure shows the policies computed,
 while the left-hand-side figure shows their value functions.
 Since constraint sampling (CS) produces randomized results,
