@@ -611,6 +611,11 @@ The larger coefficient of $\epsilon$ is probably an artifact of our analysis.
 Note that when $W$ does not reduce the constraints, 
 our bound is only a constant factor larger than this previous result.
 The extra term $\norm{\Jalpo-\Jlro}_{\infty,\psi}$ can be seen as the price paid for relaxing the constraints.
+\todoc{Petrik's thesis gives an example that shows that the  \citet{ALP} is unimprovable in a worst-case sense.
+(He also have cool ideas, ie, enriching the constraint system, of how to improve things by solving a problem
+of the same type with more or different constraints.)
+We should maybe add to the appendix his lower bound and the proof of the upper bound in some future version.
+Furthermore, an interesting question is whether the bound in \cref{cmt2} is similarly ``tight''.}
 
 From linear programming theory, it follows that primal boundedness is equivalent to dual feasibility. 
 Since the dual of $\min\{c^\top x\,:\, Ax \ge b \}$ is 
@@ -651,6 +656,8 @@ Then,
 \norm{\Jalpo-J^*}_{\infty,\psi} + (1+ \norm{\Lambda \psi}_{\psi,\infty}) \epsilon\,.
 \end{align*}
 \end{theorem}
+\todoc{We should note that the conditions can be relaxed: The cone condition is not necessary.
+Maybe give this version of the result in the appendix.}
 \begin{proof}
 Let $r^*$ be such that $\norm{J^* - \Phi r^*}_{\infty,\psi} = \epsilon$ (this exists by continuity) and let 
 $\delta = J^* - \Phi r^*$.
