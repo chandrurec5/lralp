@@ -205,7 +205,7 @@ where $p_a(s,s')$ is the probability of transitioning from state $s$ to $s'$ pro
 While the second assumption limits the scope of MDPs that the result can be applied to,
 the other two assumptions limit the choice of the basis functions. 
 Among other things, it is unclear how feasibility can be ensured while satisfying {\em (i)}.
-Nevertheless, \citeauthor{abbbama14:dualLP} demonstrate promising empirical results on a queueing problem.
+Nevertheless, \citeauthor{abbbama14:dualLP} demonstrate promising empirical results on a queuing problem.
 
 Our main contribution is a new suboptimality bound for the case when the constraint system is replaced with a smaller,
 linearly projected constraint system. We also propose a specific way of adding the extra constraint to keep the resulting LP bounded.
@@ -1435,7 +1435,7 @@ $u_{LRA}(s)=\argmin_{a\in A} g_a(s)+\sum_{s'\in S}p_a(s,s')\hat{J}_{e_{s'}}(s')$
 \emph{Case (ii)}: In a manner similar to \emph{Case (i)}, here too we formulate two separate LRALPs for next states. When formulating the LRALP for state $s'$, we first let $c_{s'}(s)=(1-\alpha)(\alpha)^{|s'-s|}$ \todoc{I think it would be better to use the sampling distribution that \citet{CS} proposed, even though if in practice this is not available.} and normalize $c$ and sample $m=6$ constraints randomly using $c$ and compute $\hat{J}_{c_s'}$. Since the optimal sampling distribution is unknown, we sample from $c$ which assigns higher weights to nearby states.
 The lookahead policy is formulated as
 $u_{CS}(s)=\argmin_{a\in A} g_a(s)+\sum_{s'\in S}p_a(s,s')\hat{J}_{c_{s'}}(s')$.
-
+We also tested the constraint sampling case with the ideal sampling distribution proposed by \cite{CS}. Here, we chose $c_{s'}=e^\top_{s'}(1-\alpha)(I-\alpha P_{u^*})^{-1}$, with $e_s$ denoting the standard basis vector which is $1$ in the $s^{th}$ co-ordinate and $0$ in all the other co-ordinates. The lookahead policy generated for the ideal sampling distribution is denoted by $U_{CS-ideal}$.
 \FloatBarrier
 \begin{figure}[htp]
 \begin{center}
@@ -1443,7 +1443,7 @@ $u_{CS}(s)=\argmin_{a\in A} g_a(s)+\sum_{s'\in S}p_a(s,s')\hat{J}_{c_{s'}}(s')$.
 \resizebox{1.0\textwidth}{!}{
 \begin{tabular}{cc}
 \begin{tikzpicture}[scale=1,font=\normalsize,]
-\begin{axis}[]
+\begin{axis}[legend style={at={(0.5,-0.2)}, anchor=north}]
 \addplot[smooth,very thick, mark=diamond, each nth point=100] plot file {./lralp_exp/V_LP};
 \addplot[dashed,very thick, mark=+, each nth point=100] plot file {./lralp_exp/V_pol_CS};
 \addplot[dashed,very thick, mark=o, each nth point=100] plot file {./lralp_exp/V_pol_CS_ideal};
@@ -1458,7 +1458,7 @@ $u_{CS}(s)=\argmin_{a\in A} g_a(s)+\sum_{s'\in S}p_a(s,s')\hat{J}_{c_{s'}}(s')$.
 
 &
 \begin{tikzpicture}[scale=1,font=\normalsize]
-\begin{axis}[]
+\begin{axis}[legend style={at={(0.5,-0.2)}, anchor=north}]
 \addplot[very thick] plot file {./lralp_exp/policy};
 \addplot[dashed,very thick] plot file {./lralp_exp/policy_CS};
 \addplot[dashed, very thick, mark=+, each nth point=10] plot file {./lralp_exp/policy_CS_ideal};
@@ -1480,7 +1480,7 @@ On both figures the $x$ axis represents the state space: the length of the queue
 The left-hand-side figure shows the value functions
 of the various policies computed, alongside with the optimal value function (higher values are better), while
 the right-hand side subfigure shows the underlying policies.
-``CS'' stands for constraint sampling, while LRA stands for choosing the constraints based on 
+``CS'' stands for constraint sampling (and ``CS-ideal'' when the ideal sampled proposed by \cite{CS} was used), while LRA stands for choosing the constraints based on
 geometric principles proposed in the paper. For further details, see the text.
 }
 \label{fig:results}
@@ -1490,7 +1490,7 @@ The right-hand-side figure shows the policies computed,
 while the left-hand-side figure shows their value functions.
 Since constraint sampling (CS) produces randomized results,
 we repeated the simulations 10 times.
-The results in all cases were quite similar except for one ``bad case'' for CS, hence we show the plot for a typical run.
+The results in all cases were quite similar except for one ``bad case'' for CS, hence we show the plot for a typical run. The plots show that the CS case with the ideal sampler is slightly worse, which can be attributed to the fact that the in the case of ideal sampler, the sampling distribution is concentrated near the start state $s'$ in comparison to the behaviour of the distribution $c_{s'}(s)=(1-\alpha)(\alpha)^{|s'-s|}$ which is distributes the mass more evenly.
 As can be seen from the figure, choosing the constraints to (approximately) satisfy the constraint of the theoretical results
 reliably produces better results: In fact, the value functions $J^*$ and $J_{LRA}$ are mostly on the top of each other.
 We expect that in larger domains it becomes even more important to select the constraints appropriately.
