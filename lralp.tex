@@ -1425,24 +1425,53 @@ which bounded the error when the constraints are chosen based on selecting a set
 % (the \emph{cone} condition) derived based on the geometric intuition
 (further preliminary experimental results have been reported in \cite{aaaipaper}).
 
-\textbf{Model:} We ran the experiments in the context of a queuing model similar to the one in Section~5.2 of \cite{ALP}. We consider a single queue with arrivals and departures. The state of the system is the queue length with the state space given by $\S=\{0,\ldots,S-1\}$, where $S-1$ is the buffer size of the queue. The action set $\A=\{1,\ldots,A\}$ is related to the service rates. We let $s_t$ denote the state at time $t$. The state at time $t+1$ when action $a_t \in \A$ is chosen is given by $s_{t+1}= s_{t}+1$ with probability $p$, $s_{t+1}= s_{t}-1$ with probability $q(a_t)$ and $s_{t+1}= s_t$, with probability $(1-p-q(a_t))$. For states $s_t=0$ and $s_t=S-1$, the system dynamics is given by $s_{t+1}= s_{t}+1$ with probability $p$ when $s_t=0$ and $s_{t+1}=s_t-1$ with probability $q(a_t)$ when $s_t=S-1$. The service rates satisfy $0<q(1)\leq \ldots\leq q(A)<1$ with $q(A)>p$ so as to ensure `stabilizability' of the queue.
-The reward associated with  action $a \in \A$ and state $s\in \S$ is given by $g_a(s)=-(s/N+q(a)^3)$ (the idea here is to penalize higher queue lengths and higher service rates).
+\textbf{Model:} We ran the experiments in the context of a queuing model similar to the one in Section~5.2 of \cite{ALP}. We consider a (simple) small scale model so that we can compare with the optimal policy.
+At the same time, we will use a small number of basis functions and constraints, to ``stress-test'' the algorithm.
+The queuing system has a single queue with random arrivals and departures. 
+The state of the system is the queue length with the state space given by $\S=\{0,\ldots,S-1\}$, 
+where $S-1$ is the buffer size of the queue. 
+The action set $\A=\{1,\ldots,A\}$ is related to the service rates. 
+We let $s_t$ denote the state at time $t$. 
+The state at time $t+1$ when action $a_t \in \A$ is chosen is given by $s_{t+1}= s_{t}+1$ with probability $p$, 
+$s_{t+1}= s_{t}-1$ with probability $q(a_t)$ and $s_{t+1}= s_t$, with probability $(1-p-q(a_t))$. 
+For states $s_t=0$ and $s_t=S-1$, the system dynamics is given by $s_{t+1}= s_{t}+1$ 
+with probability $p$ when $s_t=0$ and $s_{t+1}=s_t-1$ with probability $q(a_t)$ when $s_t=S-1$. 
+The service rates satisfy $0<q(1)\leq \ldots\leq q(A)<1$ with $q(A)>p$ so as to ensure `stabilizability' of the queue.
+The reward associated with  action $a \in \A$ and state $s\in \S$ is given by $g_a(s)=-(s/N+q(a)^3)$ 
+(the idea here is to penalize higher queue lengths and higher service rates). \todoc{Was this used by others; if so,
+cite them!}
 
-\textbf{Parameter Settings:} We ran our experiments for $S=1000$, $A=4$ with $q(1)=0.2$, $q(2)=0.4$, $q(3)=0.6$, $q(4)=0.8$, $p=0.4$ and $\alpha=1-\frac{1}{S}$.
+\textbf{Parameter Settings:} 
+We ran our experiments for $S=1000$, $A=4$ with $q(1)=0.2$, $q(2)=0.4$, $q(3)=0.6$, $q(4)=0.8$, $p=0.4$ 
+and $\alpha=1-\frac{1}{S}$.
 The moderate size of $S=1000$ enabled us to compute the exact value of $J^*$ (the most expensive part of the computation).
-Despite that the conic span condition cannot be met with them, as a way of testing the limits of the theory,
-we made use of polynomial features in $\Phi$ (i.e., $1,s,\ldots,s^{k-1}$)
+We made use of polynomial features in $\Phi$ (i.e., $1,s,\ldots,s^{k-1}$)
 since they are known to work reasonably well for this domain \cite{ALP}.
-We chose $k=4$. % (i.e., we used $1, s,s^2$ and $s^3$ as basis vectors).
+Note hat the conic span conditions will only be met with some lag, unless all the constraints are selected.
+Hence, these features allow us to test the limits of the theory. 
+We chose $k=4$, a low number, to counteract  that the MDP is small scale. 
+% (i.e., we used $1, s,s^2$ and $s^3$ as basis vectors).
 
-\textbf{Experimental Methodology:} We compare two different sampling strategies $(i)$ based on the \emph{cone} conditions, and $(ii)$ based on constraint sampling. The two strategies are compared via  \emph{lookahead} policies, wherein, the action at state $s$ is obtained by computing the approximate value functions of the next states. The details are as follows:
-\emph{Case (i)}: Except for the corner states i.e., $s=0$ and $s=999$, each state $0<s<S-1$ has two next states namely $s'=s-1$ and $s'=s+1$. We formulate two separate LRALPs (or just one LRALP for $s=0$ and $s=S-1$) for next states. When formulating the LRALP for state $s'$, we let $c=e_{s'}$ and choose the constraint corresponding to state $s'$ to ensure the cone condition to be met for LRALP. We choose $5$ more constraints corresponding to states $1,200,400,600,800,999$ (uniformly spaced across the state space) and compute $\hat{J}_{e_{s'}}$. The lookahead policy is formulated as
-$u_{LRA}(s)=\argmin_{a\in A} g_a(s)+\sum_{s'\in S}p_a(s,s')\hat{J}_{e_{s'}}(s')$.
-
-\emph{Case (ii)}: In a manner similar to \emph{Case (i)}, here too we formulate two separate LRALPs for next states. When formulating the LRALP for state $s'$, we first let $c_{s'}(s)=(1-\alpha)(\alpha)^{|s'-s|}$ \todoc{I think it would be better to use the sampling distribution that \citet{CS} proposed, even though if in practice this is not available.} and normalize $c$ and sample $m=6$ constraints randomly using $c$ and compute $\hat{J}_{c_s'}$. Since the optimal sampling distribution is unknown, we sample from $c$ which assigns higher weights to nearby states.
+\textbf{Experimental Methodology:} We compare two different sampling strategies $(i)$ based on the \emph{cone} conditions, and $(ii)$ based on constraint sampling. The two strategies are compared via  \emph{lookahead} policies, wherein, the action at state $s$ is obtained by computing the approximate value functions of the next states and selecting the action that leads to the larger estimated value. The details are as follows:
+%
+\emph{Case (i)}: Except for the corner states i.e., $s=0$ and $s=999$, each state $0<s<S-1$ has two next states namely $s'=s-1$ and $s'=s+1$. We formulate two separate LRALPs (or just one LRALP for $s=0$ and $s=S-1$) for next states. When formulating the LRALP for state $s'$, we let $c=e_{s'}$ and choose the constraint corresponding to state $s'$ to ensure the cone condition to be met for LRALP. We choose $5$ more constraints corresponding to states $1,200,400,600,800,999$ (uniformly spaced across the state space) and compute $\hat{J}_{e_{s'}}$. 
+The number of constraints is kept very small as a way of emulating that in large-scale problems we cannot expect a dense covering of the state-space when selecting the constraints.
 The lookahead policy is formulated as
-$u_{CS}(s)=\argmin_{a\in A} g_a(s)+\sum_{s'\in S}p_a(s,s')\hat{J}_{c_{s'}}(s')$.
-We also tested the constraint sampling case with the ideal sampling distribution proposed by \cite{CS}. Here, we chose $c_{s'}=e^\top_{s'}(1-\alpha)(I-\alpha P_{u^*})^{-1}$, with $e_s$ denoting the standard basis vector which is $1$ in the $s^{th}$ co-ordinate and $0$ in all the other co-ordinates. The lookahead policy generated for the ideal sampling distribution is denoted by $U_{CS-ideal}$.
+$u_{LRA}(s)=\argmin_{a\in A} g_a(s)+\sum_{s'\in S}p_a(s,s')\hat{J}_{e_{s'}}(s')$. \todoc{Did we have one more constraint here than in the CS case? Why?} 
+%
+\emph{Case (ii)}: In a manner similar to \emph{Case (i)}, we formulate two separate LRALPs for next states. However, as opposed to the previous case, when formulating the LRALP for state $s'$, we sample $m=6$ states (defining the constraints) from a distribution dependent on $s'$.
+We experimented with two sampling distributions that lead to two the lookahead policies that we denote by $u_{CS-ideal}$ and $u_{CS}$, respectively.
+The sampling distribution that defines $u_{CS-ideal}$ 
+is the sampling distribution that minimizes the upper bound proved by \citet{CS}.
+In particular, the sampling distribution used at state $s'$ is
+$c_{s'}=e^\top_{s'}(1-\alpha)(I-\alpha P_{u^*})^{-1}$, with $e_s$ denoting the standard basis vector which is $1$ in the $s^{th}$ co-ordinate and $0$ in all the other co-ordinates. This sampling distribution is used as a baseline; it is unrealistic to assume that one would be able to sample from this distribution without access to the optimal policy $u^*$, which is the quantity of ultimate interest.
+As a more realistic approach, we also consider sampling from 
+$c_{s'}(s)=\kappa (1-\alpha)(\alpha)^{|s'-s|}$, 
+where $\kappa>0$ is a normalization factor that ensures that $c_{s'}$ is a distribution.
+Again, we sample  $m=6$ states. This leads to the policy $u_{CS}$. 
+%The lookahead policy is formulated as
+%$u_{CS}(s)=\argmin_{a\in A} g_a(s)+\sum_{s'\in S}p_a(s,s')\hat{J}_{c_{s'}}(s')$.
+
 \FloatBarrier
 \begin{figure}[htp]
 \begin{center}
@@ -1487,7 +1516,7 @@ On both figures the $x$ axis represents the state space: the length of the queue
 The left-hand-side figure shows the value functions
 of the various policies computed, alongside with the optimal value function (higher values are better), while
 the right-hand side subfigure shows the underlying policies.
-``CS'' stands for constraint sampling (and ``CS-ideal'' when the ideal sampled proposed by \cite{CS} was used), while LRA stands for choosing the constraints based on
+``CS'' and ``CS-ideal'' stand for constraint sampling, while LRA stands for choosing the constraints based on
 geometric principles proposed in the paper. For further details, see the text.
 }
 \label{fig:results}
@@ -1497,10 +1526,10 @@ The right-hand-side figure shows the policies computed,
 while the left-hand-side figure shows their value functions.
 Since constraint sampling (CS) produces randomized results,
 we repeated the simulations 10 times.
-The results in all cases were quite similar except for one ``bad case'' for CS, hence we show the plot for a typical run. The plots show that the CS case with the ideal sampler is slightly worse, which can be attributed to the fact that the in the case of ideal sampler, the sampling distribution is concentrated near the start state $s'$ in comparison to the behaviour of the distribution $c_{s'}(s)=(1-\alpha)(\alpha)^{|s'-s|}$ which is distributes the mass more evenly.
+The results in all cases were quite close, hence we show the plot for a typical run. The plots show that the CS case with the ideal sampler is slightly worse, which can be attributed to the fact that the in the case of ideal sampler, the sampling distribution is concentrated near the start state $s'$ in comparison to the behaviour of the distribution $c_{s'}(s)=(1-\alpha)(\alpha)^{|s'-s|}$ which distributes the mass more evenly.
 As can be seen from the figure, choosing the constraints to (approximately) satisfy the constraint of the theoretical results
 reliably produces better results: In fact, the value functions $J^*$ and $J_{LRA}$ are mostly on the top of each other.
-We expect that in larger domains it becomes even more important to select the constraints appropriately.
+We expect that in larger domains, differences between constraints chosen based on the principles discovered in this paper and choosing constraints in more heuristic ways will lead to similar, or even larger differences. 
 However, the study of this is left for future work.
 
 %!TEX root =  autocontgrlp.tex
